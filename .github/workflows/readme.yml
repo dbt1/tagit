@@ -31,8 +31,6 @@ jobs:
         chmod 755 translate-md.py
         curl -o translate-md-config.json https://raw.githubusercontent.com/dbt1/translate-md/refs/heads/master/translate-md-config.json.sample
         ls -l
-        find -name translate-md.py
-        find -name translate-md-config.json
 
     - name: Translate README
       run: |
