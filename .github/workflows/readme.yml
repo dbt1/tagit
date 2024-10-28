@@ -27,16 +27,16 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade googletrans==3.1.0a0
-        curl -o .github/workflow/translate-md.py https://raw.githubusercontent.com/dbt1/tagit/master/translate-md.py
-        curl -o .github/workflow/translate-md-config.json https://raw.githubusercontent.com/dbt1/tagit/master/translate-md-config.json.sample
+        curl -o .github/workflows/translate-md.py https://raw.githubusercontent.com/dbt1/tagit/master/translate-md.py
+        curl -o .github/workflows/translate-md-config.json https://raw.githubusercontent.com/dbt1/tagit/master/translate-md-config.json.sample
 
     - name: Translate README
       run: |
-        python .github/workflow/translate-md.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -c .github/workflow/translate-md-config.json -s de
+        python .github/workflows/translate-md.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -c .github/workflows/translate-md-config.json -s de
 
     - name: Cleanup downloads
       run: |
-        rm -f .github/workflow/translate-md.py .github/workflow/translate-md-config.json
+        rm -f .github/workflows/translate-md.py .github/workflows/translate-md-config.json
 
     - name: Commit and push translated README
       run: |
@@ -45,4 +45,3 @@ jobs:
         git add -A
         git commit -m "readme: Automatically translated README"
         git push
-
