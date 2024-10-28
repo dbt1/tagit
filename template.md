@@ -55,6 +55,8 @@ chmod +x dateiname.py
 
 ## Verwendung
 
+> **Hinweis**: Wenn im Repository noch kein Tag vergeben wurde, wird automatisch ein Tag angelegt.
+
 Ohne Angabe von Dateien ausführen, um die neueste Version zu taggen:
   ```sh
   python tagit.py
