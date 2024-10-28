@@ -63,7 +63,7 @@ Ohne Angabe von Dateien ausführen, um die neueste Version zu taggen:
 oder mit Optionen
 
   ```sh
-  python tagit.py [Options] 
+  python tagit.py [Options]
   ```
 
 ### Beispiele
