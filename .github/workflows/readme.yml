@@ -27,16 +27,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install --upgrade googletrans==3.1.0a0
-        curl -o .github/workflows/translate-md.py https://raw.githubusercontent.com/dbt1/tagit/master/translate-md.py
-        curl -o .github/workflows/translate-md-config.json https://raw.githubusercontent.com/dbt1/tagit/master/translate-md-config.json.sample
+        curl -o translate-md.py https://raw.githubusercontent.com/dbt1/tagit/master/translate-md.py
+        chmod 755 translate-md.py
+        curl -o translate-md-config.json https://raw.githubusercontent.com/dbt1/tagit/master/translate-md-config.json.sample
 
     - name: Translate README
       run: |
-        python .github/workflows/translate-md.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -c .github/workflows/translate-md-config.json -s de
-
-    - name: Cleanup downloads
-      run: |
-        rm -f .github/workflows/translate-md.py .github/workflows/translate-md-config.json
+        python translate-md.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -c translate-md-config.json -s de
 
     - name: Commit and push translated README
       run: |
