@@ -32,11 +32,11 @@ jobs:
 
     - name: Translate README
       run: |
-        python .github/workflow/translate.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -c .github/workflow/translate-md-config.json -s de
+        python .github/workflow/translate-md.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -c .github/workflow/translate-md-config.json -s de
 
     - name: Cleanup downloads
       run: |
-        rm .github/workflow/translate.py .github/workflow/translate-md-config.json
+        rm -f .github/workflow/translate-md.py .github/workflow/translate-md-config.json
 
     - name: Commit and push translated README
       run: |
