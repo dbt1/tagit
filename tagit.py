@@ -10,9 +10,9 @@ Author: Thilo Graf
 License: MIT
 
 Examples:
-    python tagit.py -f configure.ac -f opkg-upgrade.sh
-    python tagit.py --file configure.ac --file opkg-upgrade.sh --scheme-file custom_schemes.json
-    python tagit.py
+    python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json
+    python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-prefix release-
+    python tagit.py --tag-prefix none
 """
 
 import subprocess
@@ -81,7 +81,6 @@ VERSION_SCHEMES = [
     # Additional schemes can be added here
 ]
 
-
 def get_latest_tag(repo):
     """
     Retrieves the latest Git tag and its components.
@@ -115,7 +114,6 @@ def get_latest_tag(repo):
     except GitCommandError:
         return None, None, None, None, None
 
-
 def get_commits_since_tag(repo, latest_tag):
     """
     Retrieves the number of commits since the latest tag.
@@ -133,7 +131,6 @@ def get_commits_since_tag(repo, latest_tag):
         return commits_since_tag
     except GitCommandError:
         return 0
-
 
 def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
     """
@@ -177,7 +174,6 @@ def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
         logger.info(f"{file_path} is already up to date: {ver_major}.{ver_minor}.{ver_micro}")
         return False
 
-
 def find_matching_scheme(file_path):
     """
     Finds the matching versioning scheme for the given file.
@@ -200,7 +196,6 @@ def find_matching_scheme(file_path):
             if re.search(pattern, content):
                 return scheme
     return None
-
 
 def create_git_tag(repo, version, prefix):
     """
@@ -225,7 +220,6 @@ def create_git_tag(repo, version, prefix):
         logger.error(f"Error while creating the tag: {e}")
         sys.exit(1)
 
-
 def main():
     """
     Main function of the script. Performs argument parsing, version updating, and tagging.
@@ -235,8 +229,8 @@ def main():
         description="Automated tagging and version updating.",
         epilog="Examples:\n"
                "  python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json\n"
-               "  python tagit.py --file configure.ac --file opkg-upgrade.sh\n"
-               "  python tagit.py",
+               "  python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-prefix release-\n"
+               "  python tagit.py --tag-prefix none",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
@@ -250,7 +244,19 @@ def main():
         dest='scheme_file',
         help='Path to a JSON file containing additional versioning schemes.'
     )
+    parser.add_argument(
+        '--tag-prefix',
+        dest='tag_prefix',
+        default='v',
+        help='Prefix for the Git tag (default: "v"). Use "none" or "no" for no prefix.'
+    )
     args = parser.parse_args()
+
+    # Handle tag_prefix argument
+    if args.tag_prefix.lower() in ['none', 'no']:
+        tag_prefix = ''
+    else:
+        tag_prefix = args.tag_prefix
 
     # Load additional versioning schemes if specified
     if args.scheme_file:
@@ -283,8 +289,7 @@ def main():
 
     if not latest_tag:
         logger.warning("No existing tags found. Initializing version to 0.1.0.")
-        latest_tag = "v0.1.0"
-        prefix = "v"
+        latest_tag = f"{tag_prefix}0.1.0"
         major = "0"
         minor = "1"
         patch = "0"
@@ -313,7 +318,7 @@ def main():
             else:
                 logger.info("No files were updated.")
         # Create the initial tag
-        create_git_tag(repo, f"{major}.{minor}.{patch}", prefix)
+        create_git_tag(repo, f"{major}.{minor}.{patch}", tag_prefix)
         logger.info(f"Latest tag: {latest_tag}, commits since tag: 0")
     else:
         logger.info(f"Latest tag: {latest_tag}, commits since tag: ...")
@@ -356,10 +361,10 @@ def main():
                 logger.warning("No files specified with -f/--file. Only a new tag will be created without updating any files.")
 
             # Create new Git tag
-            tag_created = create_git_tag(repo, version, prefix)
+            tag_created = create_git_tag(repo, version, tag_prefix)
 
             if not tag_created:
-                logger.warning(f"Tag {prefix}{version} already exists. Skipping tag creation.")
+                logger.warning(f"Tag {tag_prefix}{version} already exists. Skipping tag creation.")
         else:
             # Exactly on the latest tag
             version = f"{major}.{minor}.{patch}"
@@ -387,13 +392,14 @@ def main():
                     except Exception as e:
                         logger.error(f"Error while committing: {e}")
                         sys.exit(1)
+                    # Optionally, create a new tag if desired
+                    create_git_tag(repo, version, tag_prefix)
                 else:
                     logger.info("No files were updated and the repository is up to date.")
             else:
                 logger.info("No new commits and no files specified. The repository is up to date. No action is needed.")
 
     logger.info("Script executed successfully.")
-
 
 if __name__ == "__main__":
     main()
