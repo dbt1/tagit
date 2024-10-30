@@ -12,8 +12,9 @@ License: MIT
 Examples:
     python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json
     python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-format release-{major}.{minor}.{patch}
-    python tagit.py --tag-format none --initial-version 1.0.0
+    python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
 """
+
 import subprocess
 import re
 import os
@@ -214,6 +215,13 @@ def create_git_tag(repo, version, tag_format):
     """
     major, minor, patch = version.split('.')
     tag_name = tag_format.format(major=major, minor=minor, patch=patch)
+
+    # Validate that tag_format contains all required placeholders
+    required_placeholders = ['{major}', '{minor}', '{patch}']
+    if any(ph not in tag_format for ph in required_placeholders):
+        logger.error(f"The tag format '{tag_format}' must include {', '.join(required_placeholders)}.")
+        sys.exit(1)
+
     # Check if tag already exists
     if tag_name in [str(tag) for tag in repo.tags]:
         logger.info(f"Tag {tag_name} already exists. No new tag will be created.")
@@ -238,7 +246,7 @@ def main():
         epilog="Examples:\n"
                "  python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json\n"
                "  python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-format release-{major}.{minor}.{patch}\n"
-               "  python tagit.py --tag-format none --initial-version 1.0.0",
+               "  python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
@@ -264,6 +272,13 @@ def main():
         default='0.1.0',
         help='Initial version to use when no tags are present (default: "0.1.0").'
     )
+    parser.add_argument(
+        '--version-mode',
+        dest='version_mode',
+        choices=['commits', 'increment'],
+        default='commits',
+        help='Method to determine the patch version: "commits" (default) sets patch to number of commits since last tag, "increment" increases patch by one.'
+    )
     args = parser.parse_args()
 
     # Handle tag_format argument
@@ -271,6 +286,12 @@ def main():
         tag_format = '{major}.{minor}.{patch}'
     else:
         tag_format = args.tag_format
+
+    # Validate that tag_format contains all required placeholders
+    required_placeholders = ['{major}', '{minor}', '{patch}']
+    if any(ph not in tag_format for ph in required_placeholders):
+        logger.error(f"The tag format '{tag_format}' must include {', '.join(required_placeholders)}.")
+        sys.exit(1)
 
     # Handle initial_version argument
     initial_version = args.initial_version
@@ -350,8 +371,11 @@ def main():
         logger.info(f"Commits since tag: {commits_since_tag}")
 
         if commits_since_tag > 0:
-            # There are commits since the last tag
-            new_patch = int(patch) + 1
+            # Determine new patch based on version_mode
+            if args.version_mode == 'commits':
+                new_patch = int(patch) + commits_since_tag
+            elif args.version_mode == 'increment':
+                new_patch = int(patch) + 1
             version = f"{major}.{minor}.{new_patch}"
             logger.info(f"New commits found since the last tag: {version}")
 
@@ -384,7 +408,7 @@ def main():
                     logger.info("No files were updated.")
 
             else:
-                logger.warning("No files specified with -f/--file. Only a new tag will be created without updating any files.")
+                logger.info("No files specified with -f/--file. Only a new tag will be created without updating any files.")
 
             # Create new Git tag
             tag_created = create_git_tag(repo, version, tag_format)
@@ -429,6 +453,7 @@ def main():
                 logger.info("No new commits and no files specified. The repository is up to date. No action is needed.")
 
     logger.info("Script executed successfully.")
+
 
 if __name__ == "__main__":
     main()
