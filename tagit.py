@@ -11,10 +11,9 @@ License: MIT
 
 Examples:
     python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json
-    python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-prefix release-
-    python tagit.py --tag-prefix none
+    python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-format release-{major}.{minor}.{patch}
+    python tagit.py --tag-format none --initial-version 1.0.0
 """
-
 import subprocess
 import re
 import os
@@ -81,6 +80,7 @@ VERSION_SCHEMES = [
     # Additional schemes can be added here
 ]
 
+
 def get_latest_tag(repo):
     """
     Retrieves the latest Git tag and its components.
@@ -89,9 +89,8 @@ def get_latest_tag(repo):
         repo (git.Repo): The Git repository object.
 
     Returns:
-        tuple: (tag_version, prefix, major, minor, patch)
+        tuple: (tag_version, major, minor, patch)
             - tag_version (str): The latest tag (e.g., 'v0.1.6').
-            - prefix (str): The prefix of the tag (e.g., 'v').
             - major (str): Major version number.
             - minor (str): Minor version number.
             - patch (str): Patch version number.
@@ -99,20 +98,21 @@ def get_latest_tag(repo):
     try:
         latest_tag = repo.git.describe('--tags', '--abbrev=0')
         latest_tag = latest_tag.strip()
-        match_tag = re.match(r'^(?P<prefix>v?)(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$', latest_tag)
+        # Extract version numbers assuming the format contains {major}.{minor}.{patch}
+        match_tag = re.match(r'.*?(\d+)\.(\d+)\.(\d+)$', latest_tag)
         if not match_tag:
             logger.error(f"The latest tag '{latest_tag}' does not match the expected format MAJOR.MINOR.PATCH.")
-            return None, None, None, None, None
+            return None, None, None, None
 
-        prefix = match_tag.group('prefix')
-        major = match_tag.group('major')
-        minor = match_tag.group('minor')
-        patch = match_tag.group('patch')
+        major = match_tag.group(1)
+        minor = match_tag.group(2)
+        patch = match_tag.group(3)
 
-        return latest_tag, prefix, major, minor, patch
+        return latest_tag, major, minor, patch
 
     except GitCommandError:
-        return None, None, None, None, None
+        return None, None, None, None
+
 
 def get_commits_since_tag(repo, latest_tag):
     """
@@ -131,6 +131,7 @@ def get_commits_since_tag(repo, latest_tag):
         return commits_since_tag
     except GitCommandError:
         return 0
+
 
 def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
     """
@@ -174,6 +175,7 @@ def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
         logger.info(f"{file_path} is already up to date: {ver_major}.{ver_minor}.{ver_micro}")
         return False
 
+
 def find_matching_scheme(file_path):
     """
     Finds the matching versioning scheme for the given file.
@@ -197,28 +199,34 @@ def find_matching_scheme(file_path):
                 return scheme
     return None
 
-def create_git_tag(repo, version, prefix):
+
+def create_git_tag(repo, version, tag_format):
     """
-    Creates a new Git tag with the given version and prefix.
+    Creates a new Git tag with the given version and tag format.
 
     Args:
         repo (git.Repo): The Git repository object.
         version (str): The version number for the tag.
-        prefix (str): The prefix for the tag.
+        tag_format (str): The format string for the tag (e.g., 'v{major}.{minor}.{patch}').
+
+    Returns:
+        bool: True if the tag was created, False otherwise.
     """
-    tag_name = f"{prefix}{version}"
+    major, minor, patch = version.split('.')
+    tag_name = tag_format.format(major=major, minor=minor, patch=patch)
     # Check if tag already exists
     if tag_name in [str(tag) for tag in repo.tags]:
         logger.info(f"Tag {tag_name} already exists. No new tag will be created.")
         return False
     try:
-        # Create the new tag with the prefix
+        # Create the new tag with the specified format
         repo.create_tag(tag_name)
         logger.info(f"New Git tag created: {tag_name}")
         return True
     except GitCommandError as e:
         logger.error(f"Error while creating the tag: {e}")
         sys.exit(1)
+
 
 def main():
     """
@@ -229,8 +237,8 @@ def main():
         description="Automated tagging and version updating.",
         epilog="Examples:\n"
                "  python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json\n"
-               "  python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-prefix release-\n"
-               "  python tagit.py --tag-prefix none",
+               "  python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-format release-{major}.{minor}.{patch}\n"
+               "  python tagit.py --tag-format none --initial-version 1.0.0",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
@@ -245,18 +253,32 @@ def main():
         help='Path to a JSON file containing additional versioning schemes.'
     )
     parser.add_argument(
-        '--tag-prefix',
-        dest='tag_prefix',
-        default='v',
-        help='Prefix for the Git tag (default: "v"). Use "none" or "no" for no prefix.'
+        '--tag-format',
+        dest='tag_format',
+        default='v{major}.{minor}.{patch}',
+        help='Format for the Git tag (default: "v{major}.{minor}.{patch}"). Use "none" or "no" for "{major}.{minor}.{patch}".'
+    )
+    parser.add_argument(
+        '--initial-version',
+        dest='initial_version',
+        default='0.1.0',
+        help='Initial version to use when no tags are present (default: "0.1.0").'
     )
     args = parser.parse_args()
 
-    # Handle tag_prefix argument
-    if args.tag_prefix.lower() in ['none', 'no']:
-        tag_prefix = ''
+    # Handle tag_format argument
+    if args.tag_format.lower() in ['none', 'no']:
+        tag_format = '{major}.{minor}.{patch}'
     else:
-        tag_prefix = args.tag_prefix
+        tag_format = args.tag_format
+
+    # Handle initial_version argument
+    initial_version = args.initial_version
+    initial_version_match = re.match(r'^(\d+)\.(\d+)\.(\d+)$', initial_version)
+    if not initial_version_match:
+        logger.error(f"The initial version '{initial_version}' does not match the expected format MAJOR.MINOR.PATCH.")
+        sys.exit(1)
+    initial_major, initial_minor, initial_patch = initial_version_match.groups()
 
     # Load additional versioning schemes if specified
     if args.scheme_file:
@@ -285,14 +307,12 @@ def main():
         sys.exit(1)
 
     # Get the latest tag and its components
-    latest_tag, prefix, major, minor, patch = get_latest_tag(repo)
+    latest_tag, major, minor, patch = get_latest_tag(repo)
 
     if not latest_tag:
-        logger.warning("No existing tags found. Initializing version to 0.1.0.")
-        latest_tag = f"{tag_prefix}0.1.0"
-        major = "0"
-        minor = "1"
-        patch = "0"
+        # No existing tags found, use initial_version
+        version = initial_version
+        logger.info(f"No existing tags found. Initializing version to {version}.")
         # Update files with the initial version if files are specified
         if args.files:
             any_update = False
@@ -301,13 +321,16 @@ def main():
                 if not scheme:
                     logger.error(f"No supported versioning scheme found in {file_path}. Operation aborted.")
                     sys.exit(1)
-                updated = update_version_in_file(file_path, scheme, major, minor, patch)
+                updated = update_version_in_file(file_path, scheme,
+                                                ver_major=initial_major,
+                                                ver_minor=initial_minor,
+                                                ver_micro=initial_patch)
                 if updated:
                     any_update = True
 
             if any_update:
                 # Commit changes
-                commit_message = f"Version {major}.{minor}.{patch} - Initial version."
+                commit_message = f"Version {version} - Initial version."
                 try:
                     repo.index.add(args.files)
                     repo.index.commit(commit_message)
@@ -318,10 +341,10 @@ def main():
             else:
                 logger.info("No files were updated.")
         # Create the initial tag
-        create_git_tag(repo, f"{major}.{minor}.{patch}", tag_prefix)
-        logger.info(f"Latest tag: {latest_tag}, commits since tag: 0")
+        tag_created = create_git_tag(repo, version, tag_format)
+        logger.info(f"Latest tag: {tag_format.format(major=initial_major, minor=initial_minor, patch=initial_patch)}, commits since tag: 0")
     else:
-        logger.info(f"Latest tag: {latest_tag}, commits since tag: ...")
+        logger.info(f"Latest tag: {latest_tag}")
         # Count the number of commits since the latest tag
         commits_since_tag = get_commits_since_tag(repo, latest_tag)
         logger.info(f"Commits since tag: {commits_since_tag}")
@@ -340,7 +363,10 @@ def main():
                     if not scheme:
                         logger.error(f"No supported versioning scheme found in {file_path}. Operation aborted.")
                         sys.exit(1)
-                    updated = update_version_in_file(file_path, scheme, major, minor, new_patch)
+                    updated = update_version_in_file(file_path, scheme,
+                                                    ver_major=major,
+                                                    ver_minor=minor,
+                                                    ver_micro=str(new_patch))
                     if updated:
                         any_update = True
 
@@ -361,10 +387,10 @@ def main():
                 logger.warning("No files specified with -f/--file. Only a new tag will be created without updating any files.")
 
             # Create new Git tag
-            tag_created = create_git_tag(repo, version, tag_prefix)
+            tag_created = create_git_tag(repo, version, tag_format)
 
             if not tag_created:
-                logger.warning(f"Tag {tag_prefix}{version} already exists. Skipping tag creation.")
+                logger.warning(f"Tag {tag_format.format(major=major, minor=minor, patch=new_patch)} already exists. Skipping tag creation.")
         else:
             # Exactly on the latest tag
             version = f"{major}.{minor}.{patch}"
@@ -378,7 +404,10 @@ def main():
                     if not scheme:
                         logger.error(f"No supported versioning scheme found in {file_path}. Operation aborted.")
                         sys.exit(1)
-                    updated = update_version_in_file(file_path, scheme, major, minor, patch)
+                    updated = update_version_in_file(file_path, scheme,
+                                                    ver_major=major,
+                                                    ver_minor=minor,
+                                                    ver_micro=patch)
                     if updated:
                         any_update = True
 
@@ -393,7 +422,7 @@ def main():
                         logger.error(f"Error while committing: {e}")
                         sys.exit(1)
                     # Optionally, create a new tag if desired
-                    create_git_tag(repo, version, tag_prefix)
+                    create_git_tag(repo, version, tag_format)
                 else:
                     logger.info("No files were updated and the repository is up to date.")
             else:
