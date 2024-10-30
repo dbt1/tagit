@@ -10,12 +10,29 @@
   - [Sommario](#sommario)
   - [Funzioni](#caratteristiche)
   - [Requisiti](#requisiti)
+    - [Utilizza l'ambiente virtuale (consigliato)](#utilizza-lambiente-virtuale-consigliato)
+    - [A livello di sistema](#a-livello-di-sistema)
   - [Installazione](#installazione)
   - [Utilizzo](#utilizzo)
     - [Esempi](#esempi)
   - [Schemi di controllo delle versioni supportati](#schemi-di-controllo-delle-versioni-supportati)
-    - [Schemi di controllo delle versioni personalizzati](#schemi-di-versione-personalizzati)
+  - [Schemi di versione personalizzati](#schemi-di-versione-personalizzati)
+    - [Esempio di file di configurazione JSON](#file-di-configurazione-json-di-esempio)
+    - [Spiegazione di ogni schema](#spiegazione-di-ogni-schema)
+      - [ac\_init](#ac_init)
+      - [versione\_assegnazione](#assegnazione_versione)
+      - [definisci\_ver](#define_ver)
+      - [env\_versione](#env_version)
+      - [python\_setup](#python_setup)
+      - [pacchetto\_json](#pacchetto-json)
+      - [cpp\_header](#cpp_header)
+      - [xml\_versione](#xml_versione)
+      - [ini\_versione](#ini_version)
+      - [ribasso\_badge](#markdown_badge)
+      - [rubino\_gemspec](#rubino-gemspec)
   - [Registrazione](#registrazione)
+  - [Licenza](#licenza)
+  - [Autore](#autore)
 
 `Tagit` è uno script che automatizza il tagging della versione nei repository Git e aggiorna i numeri di versione in file di progetto specifici. Lo script fornisce la gestione automatica degli schemi di controllo delle versioni, semplificando il mantenimento di numeri di versione coerenti su più file nel progetto.
 
@@ -24,6 +41,8 @@
 - **Tagging Git automatico**: crea tag Git per i tuoi commit per consentire un facile monitoraggio della versione.
 - **Aggiornamento versione nei file di progetto**: aggiorna i numeri di versione nei file specificati in base a schemi di controllo delle versioni predefiniti.
 - **Schemi di controllo delle versioni personalizzati**: supporta schemi di controllo delle versioni aggiuntivi tramite un file di configurazione `json` ​​​​.
+- **Formato tag flessibile**: definisci un formato tag personalizzato con segnaposto per le versioni principali, secondarie e patch.
+- **Versione iniziale e modalità versione**: consente di impostare una versione iniziale e scegliere tra diversi metodi per la determinazione della patch (numero di commit o incremento).
 
 ## Requisiti
 
@@ -32,9 +51,18 @@
 
 Per installare le dipendenze utilizzare:
 
+### Utilizza l'ambiente virtuale (consigliato)
+
+```sh
+python3 -m venv venv && source venv/bin/activate && pip install GitPython
+```
+
+### A livello di sistema
+
 ```sh
 pip install GitPython
 ```
+
 ## installazione
 
 Utilizza `curl` per scaricare lo script direttamente in una posizione a tua scelta:
@@ -62,15 +90,14 @@ chmod +x dateiname.py
 > **Nota**: se nel repository non è stato ancora assegnato alcun tag, verrà creato automaticamente un tag.
 
 Esegui senza specificare i file per taggare l'ultima versione:
-  ```sh
-  python tagit.py
-  ```
+```sh
+python tagit.py
+```
 
-o con opzioni
-
-  ```sh
-  python tagit.py [Options]
-  ```
+o con opzioni:
+```sh
+python tagit.py [Optionen]
+```
 
 ### Esempi
 
@@ -82,6 +109,14 @@ o con opzioni
   ```sh
   python tagit.py --file configure.ac --file version.txt --scheme-file custom_schemes.json
   ```
+- Specifica il formato del tag personalizzato:
+  ```sh
+  python tagit.py --file configure.ac --tag-format release-{major}.{minor}.{patch}
+  ```
+- Imposta la versione iniziale e incrementa la versione della patch:
+  ```sh
+  python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
+  ```
 
 ## Schemi di controllo delle versioni supportati
 
@@ -92,14 +127,261 @@ o con opzioni
 - **define_ver**: aggiorna le macro della versione come `define(ver_major, X)`.
 - **env_version**: aggiorna le variabili di ambiente come `VERSION_MAJOR="X"`.
 
-### Schemi di versione personalizzati
+## Schemi di versione personalizzati
 
 Puoi aggiungere ulteriori schemi di controllo delle versioni specificando un file di configurazione JSON con l'opzione `--scheme-file`. Ciò consente di definire modelli personalizzati e stringhe sostitutive per gli aggiornamenti di versione in qualsiasi file.
 
+### File di configurazione JSON di esempio
+
+Ecco un esempio di file di configurazione JSON che definisce schemi di controllo delle versioni personalizzati:
+
+```json
+[
+    {
+        "name": "ac_init",
+        "_comment": "Updates the version number in Autoconf 'configure.ac' files using the AC_INIT macro.",
+        "patterns": {
+            "version": "(AC_INIT\\(\\[.*?\\],\\s*\\[)\\d+\\.\\d+\\.\\d+(\\],\\s*\\[.*?\\]\\))"
+        },
+        "replacements": {
+            "version": "\\g<1>{major}.{minor}.{micro}\\g<2>"
+        }
+    },
+    {
+        "name": "version_assignment",
+        "_comment": "Updates version assignments in scripts or configuration files.",
+        "patterns": {
+            "version": "VERSION\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+        },
+        "replacements": {
+            "version": "VERSION = \"{major}.{minor}.{micro}\""
+        }
+    },
+    {
+        "name": "define_ver",
+        "_comment": "Updates version definitions in files using 'define' macros.",
+        "patterns": {
+            "ver_major": "define\\(ver_major,\\s*\\d+\\)",
+            "ver_minor": "define\\(ver_minor,\\s*\\d+\\)",
+            "ver_micro": "define\\(ver_micro,\\s*\\d+\\)"
+        },
+        "replacements": {
+            "ver_major": "define(ver_major, {major})",
+            "ver_minor": "define(ver_minor, {minor})",
+            "ver_micro": "define(ver_micro, {micro})"
+        }
+    },
+    {
+        "name": "env_version",
+        "_comment": "Updates environment variable assignments for version numbers.",
+        "patterns": {
+            "VERSION_MAJOR": "VERSION_MAJOR=\"\\d+\"",
+            "VERSION_MINOR": "VERSION_MINOR=\"\\d+\"",
+            "VERSION_PATCH": "VERSION_PATCH=\"\\d+\""
+        },
+        "replacements": {
+            "VERSION_MAJOR": "VERSION_MAJOR=\"{major}\"",
+            "VERSION_MINOR": "VERSION_MINOR=\"{minor}\"",
+            "VERSION_PATCH": "VERSION_PATCH=\"{patch}\""
+        }
+    },
+    {
+        "name": "python_setup",
+        "_comment": "Updates the version number in Python 'setup.py' files.",
+        "patterns": {
+            "version": "version=\\\"\\d+\\.\\d+\\.\\d+\\\""
+        },
+        "replacements": {
+            "version": "version=\"{major}.{minor}.{patch}\""
+        }
+    },
+    {
+        "name": "package_json",
+        "_comment": "Updates the version number in 'package.json' files for Node.js projects.",
+        "patterns": {
+            "version": "\"version\":\\s*\"\\d+\\.\\d+\\.\\d+\""
+        },
+        "replacements": {
+            "version": "\"version\": \"{major}.{minor}.{patch}\""
+        }
+    },
+    {
+        "name": "cpp_header",
+        "_comment": "Updates version numbers in C++ header files.",
+        "patterns": {
+            "VERSION_MAJOR": "#define\\s+VERSION_MAJOR\\s+\\d+",
+            "VERSION_MINOR": "#define\\s+VERSION_MINOR\\s+\\d+",
+            "VERSION_PATCH": "#define\\s+VERSION_PATCH\\s+\\d+"
+        },
+        "replacements": {
+            "VERSION_MAJOR": "#define VERSION_MAJOR {major}",
+            "VERSION_MINOR": "#define VERSION_MINOR {minor}",
+            "VERSION_PATCH": "#define VERSION_PATCH {patch}"
+        }
+    },
+    {
+        "name": "xml_version",
+        "_comment": "Updates version numbers in XML files.",
+        "patterns": {
+            "version": "<version>\\d+\\.\\d+\\.\\d+</version>"
+        },
+        "replacements": {
+            "version": "<version>{major}.{minor}.{patch}</version>"
+        }
+    },
+    {
+        "name": "ini_version",
+        "_comment": "Updates version numbers in INI configuration files.",
+        "patterns": {
+            "version": "version=\\d+\\.\\d+\\.\\d+"
+        },
+        "replacements": {
+            "version": "version={major}.{minor}.{patch}"
+        }
+    },
+    {
+        "name": "markdown_badge",
+        "_comment": "Updates version badges in 'README.md' files.",
+        "patterns": {
+            "version": "\\[!\\[Version\\]\\(https://img\\.shields\\.io/badge/version-\\d+\\.\\d+\\.\\d+-blue\\.svg\\)\\]\\(.*?\\)"
+        },
+        "replacements": {
+            "version": "[![Version](https://img.shields.io/badge/version-{major}.{minor}.{patch}-blue.svg)](URL_TO_PROJECT)"
+        }
+    },
+    {
+        "name": "ruby_gemspec",
+        "_comment": "Updates the version number in Ruby '.gemspec' files.",
+        "patterns": {
+            "version": "\\.version\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+        },
+        "replacements": {
+            "version": ".version = \"{major}.{minor}.{patch}\""
+        }
+    }
+]
+```
+
+### Spiegazione di ogni schema
+
+#### ac_init
+- **Scopo**: aggiorna la versione nei file `configure.ac` utilizzando la macro `AC_INIT`.
+- **Esempio**:
+  ```m4
+  AC_INIT([MyProject], [0.1.0], [support@example.com])
+  ```
+- **Descrizione**: cerca la macro `AC_INIT` e aggiorna il numero di versione.
+
+#### assegnazione_versione
+- **Scopo**: assegnazione generale del controllo delle versioni negli script o nei file di configurazione.
+- **Esempio**:
+  ```bash
+  VERSION = "0.1.0"
+  ```
+- **Descrizione**: cerca le righe contenenti `VERSION = "..."` e sostituisce la versione.
+
+#### define_ver
+- **Scopo**: definizioni di versione nei file che utilizzano macro.
+- **Esempio**:
+  ```m4
+  define(ver_major, 0)
+  define(ver_minor, 1)
+  define(ver_micro, 0)
+  ```
+- **Descrizione**: Sostituisce le versioni principali, secondarie e patch nelle macro.
+
+#### env_version
+- **Scopo**: imposta i numeri di versione per le variabili di ambiente.
+- **Esempio**:
+  ```bash
+  VERSION_MAJOR="0"
+  VERSION_MINOR="1"
+  VERSION_PATCH="0"
+  ```
+- **Descrizione**: Aggiorna le variabili d'ambiente con la nuova versione.
+
+#### python_setup
+- **Scopo**: aggiorna la versione in `setup.py` per i pacchetti Python.
+- **Esempio**:
+  ```python
+  setup(
+      name='mypackage',
+      version="0.1.0",
+      ...
+  )
+  ```
+- **Descrizione**: cerca la versione in `setup.py` e la sostituisce.
+
+#### pacchetto json
+- **Scopo**: aggiorna la versione in `package.json` per i progetti Node.js.
+- **Esempio**:
+  ```json
+  {
+    "name": "myproject",
+    "version": "0.1.0",
+    ...
+  }
+  ```
+- **Descrizione**: cerca e aggiorna il campo della versione in `package.json`.
+
+#### cpp_header
+- **Scopo**: aggiorna i numeri di versione nei file di intestazione C/C++.
+- **Esempio**:
+  ```cpp
+  #define VERSION_MAJOR 0
+  #define VERSION_MINOR 1
+  #define VERSION_PATCH 0
+  ```
+- **Descrizione**: sostituisce i numeri di versione nelle direttive `#define`.
+
+#### xml_versione
+- **Scopo**: aggiorna i numeri di versione nei file XML.
+- **Esempio**:
+  ```xml
+  <version>0.1.0</version>
+  ```
+- **Descrizione**: Trova il tag `<version>` e aggiorna il numero di versione.
+
+#### ini_version
+- **Scopo**: aggiorna i numeri di versione nei file INI.
+- **Esempio**:
+  ```ini
+  version=0.1.0
+  ```
+- **Descrizione**: Trova l'impostazione della versione e la sostituisce.
+
+#### markdown_badge
+- **Scopo**: aggiorna i badge della versione nei file `README.md`.
+- **Esempio**:
+  ```markdown
+  [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/username/repository)
+  ```
+- **Descrizione**: sostituisce il numero di versione nel collegamento del badge.
+
+#### rubino gemspec
+- **Scopo**: aggiorna il numero di versione nei file `.gemspec` per Ruby.
+- **Esempio**:
+  ```ruby
+  Gem::Specification.new do |spec|
+    spec.name        = 'mygem'
+    spec.version     = "0.1.0"
+    ...
+  end
+  ```
+- **Descrizione**: cerca `.version` nei file `.gemspec` e li aggiorna.
+
 ## Registrazione
 
-`Tagit` fornisce una registrazione dettagliata per ogni azione intrapresa. Le voci di registro includono:
+`Tagit` fornisce una registrazione dettagliata per ogni azione intrapresa. Le voci del registro includono:
 
 - Aggiornamenti della versione nei file
 - Azioni di tagging di Git
 - Avvisi ed errori in caso di problemi
+
+## Licenza
+
+`Tagit` è concesso in licenza con la licenza MIT.
+
+## autore
+
+Creato da Thilo Graf.
