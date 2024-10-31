@@ -15,8 +15,9 @@
   - [Installazione](#installazione)
   - [Utilizzo](#utilizzo)
     - [Esempi](#esempi)
+    - [Integrazione Git Hook](#integrazione-dellhook-git)
   - [Schemi di controllo delle versioni supportati](#schemi-di-controllo-delle-versioni-supportati)
-  - [Schemi di versione personalizzati](#schemi-di-versione-personalizzati)
+  - [Schemi di controllo delle versioni personalizzati](#schemi-di-versione-personalizzati)
     - [Esempio di file di configurazione JSON](#file-di-configurazione-json-di-esempio)
     - [Spiegazione di ogni schema](#spiegazione-di-ogni-schema)
       - [ac\_init](#ac_init)
@@ -118,6 +119,45 @@ python tagit.py [Optionen]
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
   ```
 
+### Integrazione dell'hook Git
+
+Puoi integrare `Tagit` nel tuo flusso di lavoro Git utilizzandolo come hook pre-push. Ciò garantisce che i numeri di versione e i tag vengano aggiornati automaticamente prima di inviare modifiche al repository remoto.
+
+Ecco una guida per utilizzare lo script come hook pre-push:
+
+1. Crea la cartella hook Git se non esiste:
+
+   ```sh
+   mkdir -p .git/hooks
+   ```
+
+2. Crea un file denominato `pre-push` nella directory `.git/hooks/` e rendilo eseguibile:
+
+   ```sh
+   touch .git/hooks/pre-push
+   chmod +x .git/hooks/pre-push
+   ```
+
+3. Modifica il file `.git/hooks/pre-push` e aggiungi il seguente contenuto:
+
+   ```sh
+   #!/bin/sh
+   # Pre-Push Hook to run Tagit before pushing
+   
+   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
+   python3 path/to/tagit.py -f configure.ac -f version.txt || {
+       echo "Tagit failed. Push aborted."
+       exit 1
+   }
+   ```
+
+   Sostituisci `path/to/tagit.py` con il percorso effettivo dello script Tagit e `configure.ac`, `version.txt` con i file che desideri aggiornare.
+
+4. Salva le modifiche e chiudi il file.
+
+Ora ogni volta che provi a inviare modifiche, verrà eseguito lo script Tagit. Se Tagit fallisce, il push verrà annullato in modo da poter garantire che le versioni rimangano coerenti.
+
+
 ## Schemi di controllo delle versioni supportati
 
 `Tagit` viene fornito con schemi di versione predefiniti, che possono essere estesi con un file di configurazione JSON, se necessario:
@@ -149,12 +189,12 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
     },
     {
         "name": "version_assignment",
-        "_comment": "Updates version assignments in scripts or configuration files.",
+        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
         "patterns": {
-            "version": "VERSION\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
         },
         "replacements": {
-            "version": "VERSION = \"{major}.{minor}.{micro}\""
+            "version": "\\1 = \"{major}.{minor}.{patch}\""
         }
     },
     {
@@ -372,7 +412,7 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
 
 ## Registrazione
 
-`Tagit` fornisce una registrazione dettagliata per ogni azione intrapresa. Le voci del registro includono:
+`Tagit` fornisce una registrazione dettagliata per ogni azione intrapresa. Le voci di registro includono:
 
 - Aggiornamenti della versione nei file
 - Azioni di tagging di Git

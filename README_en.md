@@ -15,6 +15,7 @@
   - [Installation](#installation)
   - [Usage](#use)
     - [Examples](#examples)
+    - [Git Hook Integration](#git-hook-integration)
   - [Supported versioning schemes](#supported-versioning-schemes)
   - [Custom Versioning Schemes](#custom-versioning-schemes)
     - [Example JSON configuration file](#example-json-configuration-file)
@@ -118,6 +119,45 @@ python tagit.py [Optionen]
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
   ```
 
+### Git hook integration
+
+You can integrate `Tagit` into your Git workflow by using it as a pre-push hook. This ensures that version numbers and tags are automatically updated before you push changes to the remote repository.
+
+Here is a guide to use the script as a pre-push hook:
+
+1. Create the Git hook folder if it doesn't exist:
+
+   ```sh
+   mkdir -p .git/hooks
+   ```
+
+2. Create a file named `pre-push` in the `.git/hooks/` directory and make it executable:
+
+   ```sh
+   touch .git/hooks/pre-push
+   chmod +x .git/hooks/pre-push
+   ```
+
+3. Edit the `.git/hooks/pre-push` file and add the following content:
+
+   ```sh
+   #!/bin/sh
+   # Pre-Push Hook to run Tagit before pushing
+   
+   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
+   python3 path/to/tagit.py -f configure.ac -f version.txt || {
+       echo "Tagit failed. Push aborted."
+       exit 1
+   }
+   ```
+
+   Replace `path/to/tagit.py` with the actual path to your Tagit script and `configure.ac`, `version.txt` with the files you want to update.
+
+4. Save the changes and close the file.
+
+Now every time you try to push changes, the Tagit script will be executed. If Tagit fails, the push will be canceled so you can ensure versions remain consistent.
+
+
 ## Supported versioning schemes
 
 `Tagit` comes with predefined versioning schemes, which can be extended with a JSON configuration file if necessary:
@@ -149,12 +189,12 @@ Here is an example JSON configuration file that defines custom versioning scheme
     },
     {
         "name": "version_assignment",
-        "_comment": "Updates version assignments in scripts or configuration files.",
+        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
         "patterns": {
-            "version": "VERSION\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
         },
         "replacements": {
-            "version": "VERSION = \"{major}.{minor}.{micro}\""
+            "version": "\\1 = \"{major}.{minor}.{patch}\""
         }
     },
     {

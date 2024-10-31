@@ -15,6 +15,7 @@
   - [Installation](#installation)
   - [Utilisation](#utiliser)
     - [Exemples](#exemples)
+    - [Intégration Git Hook](#intégration-du-crochet-git)
   - [Schémas de version pris en charge](#schémas-de-version-pris-en-charge)
   - [Schémas de gestion de versions personnalisés](#schémas-de-version-personnalisés)
     - [Exemple de fichier de configuration JSON](#exemple-de-fichier-de-configuration-json)
@@ -118,6 +119,45 @@ python tagit.py [Optionen]
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
   ```
 
+### Intégration du crochet Git
+
+Vous pouvez intégrer `Tagit` dans votre workflow Git en l'utilisant comme hook de pré-push. Cela garantit que les numéros de version et les balises sont automatiquement mis à jour avant que vous n'appliquiez les modifications au référentiel distant.
+
+Voici un guide pour utiliser le script comme hook de pré-push :
+
+1. Créez le dossier hook Git s'il n'existe pas :
+
+   ```sh
+   mkdir -p .git/hooks
+   ```
+
+2. Créez un fichier nommé `pre-push` dans le répertoire `.git/hooks/` et rendez-le exécutable :
+
+   ```sh
+   touch .git/hooks/pre-push
+   chmod +x .git/hooks/pre-push
+   ```
+
+3. Modifiez le fichier `.git/hooks/pre-push` et ajoutez le contenu suivant :
+
+   ```sh
+   #!/bin/sh
+   # Pre-Push Hook to run Tagit before pushing
+   
+   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
+   python3 path/to/tagit.py -f configure.ac -f version.txt || {
+       echo "Tagit failed. Push aborted."
+       exit 1
+   }
+   ```
+
+   Remplacez `path/to/tagit.py` par le chemin réel de votre script Tagit et `configure.ac`, `version.txt` par les fichiers que vous souhaitez mettre à jour.
+
+4. Enregistrez les modifications et fermez le fichier.
+
+Désormais, chaque fois que vous essayez d'appliquer des modifications, le script Tagit sera exécuté. Si Tagit échoue, le push sera annulé afin que vous puissiez garantir que les versions restent cohérentes.
+
+
 ## Schémas de version pris en charge
 
 `Tagit` est livré avec des schémas de versioning prédéfinis, qui peuvent être étendus avec un fichier de configuration JSON si nécessaire :
@@ -149,12 +189,12 @@ Voici un exemple de fichier de configuration JSON qui définit des schémas de g
     },
     {
         "name": "version_assignment",
-        "_comment": "Updates version assignments in scripts or configuration files.",
+        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
         "patterns": {
-            "version": "VERSION\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
         },
         "replacements": {
-            "version": "VERSION = \"{major}.{minor}.{micro}\""
+            "version": "\\1 = \"{major}.{minor}.{patch}\""
         }
     },
     {

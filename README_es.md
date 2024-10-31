@@ -11,11 +11,12 @@
   - [Características](#características)
   - [Requisitos](#requisitos)
     - [Usar entorno virtual (recomendado)](#usar-entorno-virtual-recomendado)
-    - [Todo el sistema](#todo-el-sistema)
+    - [En todo el sistema](#todo-el-sistema)
   - [Instalación](#instalación)
   - [Uso](#usar)
     - [Ejemplos](#ejemplos)
-  - [Esquemas de versiones compatibles](#esquemas-de-versiones-soportados)
+    - [Integración de Git Hook](#integración-de-gancho-git)
+  - [Esquemas de versiones soportados](#esquemas-de-versiones-soportados)
   - [Esquemas de versiones personalizados](#esquemas-de-versiones-personalizados)
     - [Ejemplo de archivo de configuración JSON](#ejemplo-de-archivo-de-configuración-json)
     - [Explicación de cada esquema](#explicación-de-cada-esquema)
@@ -118,9 +119,48 @@ python tagit.py [Optionen]
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
   ```
 
+### Integración de gancho Git
+
+Puedes integrar `Tagit` en tu flujo de trabajo de Git usándolo como un enlace previo al envío. Esto garantiza que los números de versión y las etiquetas se actualicen automáticamente antes de enviar cambios al repositorio remoto.
+
+Aquí hay una guía para usar el script como gancho previo al envío:
+
+1. Cree la carpeta de enlace de Git si no existe:
+
+   ```sh
+   mkdir -p .git/hooks
+   ```
+
+2. Cree un archivo llamado `pre-push` en el directorio `.git/hooks/` y hágalo ejecutable:
+
+   ```sh
+   touch .git/hooks/pre-push
+   chmod +x .git/hooks/pre-push
+   ```
+
+3. Edite el archivo `.git/hooks/pre-push` y agregue el siguiente contenido:
+
+   ```sh
+   #!/bin/sh
+   # Pre-Push Hook to run Tagit before pushing
+   
+   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
+   python3 path/to/tagit.py -f configure.ac -f version.txt || {
+       echo "Tagit failed. Push aborted."
+       exit 1
+   }
+   ```
+
+   Reemplace `path/to/tagit.py` con la ruta real a su script Tagit y `configure.ac`, `version.txt` con los archivos que desea actualizar.
+
+4. Guarde los cambios y cierre el archivo.
+
+Ahora, cada vez que intente realizar cambios, se ejecutará el script Tagit. Si Tagit falla, el envío se cancelará para que pueda asegurarse de que las versiones sigan siendo consistentes.
+
+
 ## Esquemas de versiones soportados
 
-`Tagit` viene con esquemas de versiones predefinidos, que se pueden ampliar con un archivo de configuración JSON si es necesario:
+`Tagit` viene con esquemas de control de versiones predefinidos, que se pueden ampliar con un archivo de configuración JSON si es necesario:
 
 - **ac_init**: busca y actualiza la versión en las macros `AC_INIT()` utilizadas en los archivos `configure.ac`.
 - **version_assignment**: busca instrucciones de asignación `VERSION = "X.X.X"`.
@@ -129,7 +169,7 @@ python tagit.py [Optionen]
 
 ## Esquemas de versiones personalizados
 
-Puede agregar esquemas de control de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
+Puede agregar esquemas de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
 
 ### Ejemplo de archivo de configuración JSON
 
@@ -149,12 +189,12 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
     },
     {
         "name": "version_assignment",
-        "_comment": "Updates version assignments in scripts or configuration files.",
+        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
         "patterns": {
-            "version": "VERSION\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
         },
         "replacements": {
-            "version": "VERSION = \"{major}.{minor}.{micro}\""
+            "version": "\\1 = \"{major}.{minor}.{patch}\""
         }
     },
     {
@@ -313,7 +353,7 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
 - **Descripción**: Busca la versión en `setup.py` y la reemplaza.
 
 #### paquete json
-- **Propósito**: Actualiza la versión en `package.json` para proyectos Node.js.
+- **Propósito**: Actualiza la versión en `package.json` para proyectos de Node.js.
 - **Ejemplo**:
   ```json
   {
@@ -368,7 +408,7 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
     ...
   end
   ```
-- **Descripción**: busca `.version` en archivos `.gemspec` y los actualiza.
+- **Descripción**: Busca `.version` en archivos `.gemspec` y los actualiza.
 
 ## Explotación florestal
 
