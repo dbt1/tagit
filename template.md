@@ -11,6 +11,7 @@
   - [Installation](#installation)
   - [Verwendung](#verwendung)
     - [Beispiele](#beispiele)
+    - [Git Hook Integration](#git-hook-integration)
   - [Unterstützte Versionierungsschemata](#unterstützte-versionierungsschemata)
   - [Benutzerdefinierte Versionierungsschemata](#benutzerdefinierte-versionierungsschemata)
     - [Beispiel JSON-Konfigurationsdatei](#beispiel-json-konfigurationsdatei)
@@ -114,6 +115,45 @@ python tagit.py [Optionen]
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
   ```
 
+### Git Hook Integration
+
+Du kannst `Tagit` in deinen Git-Workflow integrieren, indem du es als Pre-Push Hook verwendest. Dies stellt sicher, dass die Versionsnummern und Tags automatisch aktualisiert werden, bevor du Änderungen ins Remote-Repository pushst.
+
+Hier ist eine Anleitung, um das Skript als Pre-Push Hook zu verwenden:
+
+1. Erstelle den Git-Hook-Ordner, falls er nicht existiert:
+
+   ```sh
+   mkdir -p .git/hooks
+   ```
+
+2. Erstelle eine Datei namens `pre-push` im Verzeichnis `.git/hooks/` und mache sie ausführbar:
+
+   ```sh
+   touch .git/hooks/pre-push
+   chmod +x .git/hooks/pre-push
+   ```
+
+3. Bearbeite die Datei `.git/hooks/pre-push` und füge folgenden Inhalt hinzu:
+
+   ```sh
+   #!/bin/sh
+   # Pre-Push Hook to run Tagit before pushing
+   
+   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
+   python3 path/to/tagit.py -f configure.ac -f version.txt || {
+       echo "Tagit failed. Push aborted."
+       exit 1
+   }
+   ```
+
+   Ersetze `path/to/tagit.py` durch den tatsächlichen Pfad zu deinem Tagit-Skript und `configure.ac`, `version.txt` durch die Dateien, die du aktualisieren möchtest.
+
+4. Speichere die Änderungen und schließe die Datei.
+
+Jetzt wird jedes Mal, wenn du versuchst, Änderungen zu pushen, das Tagit-Skript ausgeführt. Wenn Tagit fehlschlägt, wird der Push abgebrochen, sodass du sicherstellen kannst, dass die Versionen konsistent bleiben.
+
+
 ## Unterstützte Versionierungsschemata
 
 `Tagit` kommt mit vordefinierten Versionierungsschemata, die bei Bedarf mit einer JSON-Konfigurationsdatei erweitert werden können:
@@ -145,12 +185,12 @@ Hier ist ein Beispiel für eine JSON-Konfigurationsdatei, die benutzerdefinierte
     },
     {
         "name": "version_assignment",
-        "_comment": "Updates version assignments in scripts or configuration files.",
+        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
         "patterns": {
-            "version": "VERSION\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
         },
         "replacements": {
-            "version": "VERSION = \"{major}.{minor}.{micro}\""
+            "version": "\\1 = \"{major}.{minor}.{patch}\""
         }
     },
     {
