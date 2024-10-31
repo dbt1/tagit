@@ -12,12 +12,12 @@
     },
     {
         "name": "version_assignment",
-        "_comment": "Ersetzt Versionszuweisungen in Skripten oder Konfigurationsdateien.",
+        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
         "patterns": {
-            "version": "VERSION\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
         },
         "replacements": {
-            "version": "VERSION = \"{major}.{minor}.{micro}\""
+            "version": "\\1=\"{major}.{minor}.{patch}\""
         }
     },
     {
