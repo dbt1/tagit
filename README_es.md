@@ -39,11 +39,11 @@
 
 ## Características
 
-- **Etiquetado Git automático**: crea etiquetas Git para sus confirmaciones para permitir un seguimiento sencillo de la versión.
-- **Actualización de versión en archivos de proyecto**: actualiza los números de versión en archivos específicos según esquemas de control de versiones predefinidos.
-- **Esquemas de versiones personalizados**: admite esquemas de versiones adicionales a través de un archivo de configuración `json`.
-- **Formato de etiqueta flexible**: defina un formato de etiqueta personalizado con marcadores de posición para las versiones principal, secundaria y de parche.
-- **Versión inicial y modo de versión**: Le permite configurar una versión inicial y elegir entre diferentes métodos para la determinación de parches (número de confirmaciones o incrementos).
+- **Etiquetado Git automático**: Genera etiquetas Git basadas en diferentes métodos de determinación de parches (número de confirmaciones o incrementos).
+- **Actualización de versión en archivos de proyecto**: actualiza los números de versión en archivos específicos según esquemas de control de versiones predefinidos. Admite varios formatos de versiones (por ejemplo, AC_INIT, VERSION = "X.X.X", define(ver_major, X))
+- **Esquemas de control de versiones personalizados**: admite esquemas de control de versiones adicionales a través de un archivo de configuración de esquema `json`.
+- **Formato de etiqueta flexible**: le permite definir formatos de etiquetas comodín personalizados para versiones principales, secundarias y de parche a través de formatos comodín personalizables como {AAAA}, {MM}, {DD}, {principal}, {menor}, y {patch}, también para fecha y hora: Utilice {AAAA}, {MM}, {DD}, {hh}, {mm}, {ss} para integrar automáticamente la fecha y hora actuales.
+- **Versión inicial y modo de versión**: Le permite configurar una versión inicial.
 
 ## Requisitos
 
@@ -106,17 +106,33 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py -f configure.ac -f version.txt
   ```
-- Especifique esquemas de versiones adicionales con un archivo de configuración `JSON`:
+- Esquemas de versiones adicionales con un archivo de configuración de esquema `JSON`:
   ```sh
   python tagit.py --file configure.ac --file version.txt --scheme-file custom_schemes.json
   ```
-- Especificar formato de etiqueta personalizado:
+- Etiquetado con esquemas de versiones desde un archivo de configuración de esquema `JSON`
+  ```sh
+  python tagit.py --scheme-file custom_schemes.json --tag-format '{major}.{minor}.{patch}'
+  ```
+- Formato de etiqueta personalizado:
   ```sh
   python tagit.py --file configure.ac --tag-format release-{major}.{minor}.{patch}
   ```
 - Establecer la versión inicial e incrementar la versión del parche:
   ```sh
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
+  ```
+- Etiquetado con marcadores de posición de año y mes.
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}'
+  ```
+- Etiquetado con fecha y hora.
+  ```sh
+  python tagit.py --tag-format 'v{major}.{minor}.{patch}-{YY}{MM}{DD}-{hh}{mm}{ss}'
+  ```
+- Etiquetado con año, mes.
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
 
 ### Integración de gancho Git
@@ -169,7 +185,7 @@ Ahora, cada vez que intente realizar cambios, se ejecutará el script Tagit. Si 
 
 ## Esquemas de versiones personalizados
 
-Puede agregar esquemas de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
+Puede agregar esquemas de control de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
 
 ### Ejemplo de archivo de configuración JSON
 
@@ -353,7 +369,7 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
 - **Descripción**: Busca la versión en `setup.py` y la reemplaza.
 
 #### paquete json
-- **Propósito**: Actualiza la versión en `package.json` para proyectos de Node.js.
+- **Propósito**: Actualiza la versión en `package.json` para proyectos Node.js.
 - **Ejemplo**:
   ```json
   {

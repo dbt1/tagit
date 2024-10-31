@@ -39,11 +39,11 @@
 
 ## Caractéristiques
 
-- **Marquage Git automatique** : crée des balises Git pour vos commits afin de permettre un suivi facile des versions.
-- **Mise à jour de version dans les fichiers de projet** : met à jour les numéros de version dans les fichiers spécifiés en fonction de schémas de version prédéfinis.
-- **Schémas de version personnalisés** : prend en charge des schémas de version supplémentaires via un fichier de configuration `json` ​​​​​​.
-- **Format de balise flexible** : définissez un format de balise personnalisé avec des espaces réservés pour les versions majeures, mineures et de correctifs.
-- **Version initiale et mode version** : Permet de définir une version initiale et de choisir entre différentes méthodes de détermination des correctifs (nombre de commits ou incrémentation).
+- **Automatic Git Tagging** : génère des balises Git en fonction de différentes méthodes de détermination de correctifs (nombre de commits ou incrémentation).
+- **Mise à jour de version dans les fichiers de projet** : met à jour les numéros de version dans les fichiers spécifiés en fonction de schémas de version prédéfinis. Prend en charge divers formats de version (par exemple AC_INIT, VERSION = "X.X.X", definition(ver_major, X))
+- **Schémas de version personnalisés** : prend en charge des schémas de version supplémentaires via un fichier de configuration de schéma `json` ​​​​.
+- **Format de balise flexible** : vous permet de définir des formats de balises génériques personnalisés pour les versions majeures, mineures et de correctifs via des formats de caractères génériques personnalisables tels que {AAAA}, {MM}, {JJ}, {majeur}, {mineur}, et {patch}, également pour la date et l'heure : utilisez {YYYY}, {MM}, {DD}, {hh}, {mm}, {ss} pour intégrer automatiquement la date et l'heure actuelles.
+- **Version initiale et mode version** : Permet de définir une version initiale.
 
 ## Exigences
 
@@ -106,17 +106,33 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py -f configure.ac -f version.txt
   ```
-- Spécifiez des schémas de version supplémentaires avec un fichier de configuration `JSON` :
+- Schémas de version supplémentaires avec un fichier de configuration de schéma `JSON` :
   ```sh
   python tagit.py --file configure.ac --file version.txt --scheme-file custom_schemes.json
   ```
-- Spécifiez le format de balise personnalisé :
+- Balisage avec des schémas de version à partir d'un fichier de configuration de schéma `JSON`
+  ```sh
+  python tagit.py --scheme-file custom_schemes.json --tag-format '{major}.{minor}.{patch}'
+  ```
+- Format de balise personnalisé :
   ```sh
   python tagit.py --file configure.ac --tag-format release-{major}.{minor}.{patch}
   ```
 - Définir la version initiale et incrémenter la version du correctif :
   ```sh
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
+  ```
+- Marquage avec des espaces réservés pour l'année et le mois
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}'
+  ```
+- Marquage avec date et heure
+  ```sh
+  python tagit.py --tag-format 'v{major}.{minor}.{patch}-{YY}{MM}{DD}-{hh}{mm}{ss}'
+  ```
+- Marquage avec année, mois
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
 
 ### Intégration du crochet Git

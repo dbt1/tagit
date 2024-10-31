@@ -39,11 +39,11 @@
 
 ## Features
 
-- **Automatic Git Tagging**: Creates Git tags for your commits to enable easy version tracking.
-- **Version Update in Project Files**: Updates version numbers in specified files based on predefined versioning schemes.
-- **Custom versioning schemes**: Supports additional versioning schemes via an `json` ​​configuration file.
-- **Flexible Tag Format**: Define a custom tag format with placeholders for major, minor and patch versions.
-- **Initial version and version mode**: Allows you to set an initial version and choose between different methods for patch determination (number of commits or incrementation).
+- **Automatic Git Tagging**: Generates Git tags based on different patch determination methods (number of commits or incrementation).
+- **Version Update in Project Files**: Updates version numbers in specified files based on predefined versioning schemes. Supports various versioning formats (e.g. AC_INIT, VERSION = "X.X.X", define(ver_major, X))
+- **Custom versioning schemes**: Supports additional versioning schemes via an `json` ​​scheme configuration file.
+- **Flexible Tag Format**: Allows you to define custom wildcard tag formats for major, minor and patch versions through customizable wildcard formats such as {YYYY}, {MM}, {DD}, {major} , {minor}, and {patch}, also for date and time: Use {YYYY}, {MM}, {DD}, {hh}, {mm}, {ss} to automatically integrate the current date and time.
+- **Initial version and version mode**: Allows you to set an initial version.
 
 ## Requirements
 
@@ -106,17 +106,33 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py -f configure.ac -f version.txt
   ```
-- Specify additional versioning schemes with an `JSON` configuration file:
+- Additional versioning schemes with an `JSON` scheme configuration file:
   ```sh
   python tagit.py --file configure.ac --file version.txt --scheme-file custom_schemes.json
   ```
-- Specify custom tag format:
+- Tagging with versioning schemes from an `JSON` scheme configuration file
+  ```sh
+  python tagit.py --scheme-file custom_schemes.json --tag-format '{major}.{minor}.{patch}'
+  ```
+- Custom Tag Format:
   ```sh
   python tagit.py --file configure.ac --tag-format release-{major}.{minor}.{patch}
   ```
 - Set initial version and increment patch version:
   ```sh
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
+  ```
+- Tagging with year and month placeholders
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}'
+  ```
+- Tagging with date and time
+  ```sh
+  python tagit.py --tag-format 'v{major}.{minor}.{patch}-{YY}{MM}{DD}-{hh}{mm}{ss}'
+  ```
+- Tagging with year, month
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
 
 ### Git hook integration
