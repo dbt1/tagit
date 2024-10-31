@@ -1,18 +1,24 @@
 #!/usr/bin/env python3
 """
-Automatic Git Tagging and Version Update
+Automatic Git Tagging and Version Update with custom placeholders.
 
 This script automates tagging in Git and updates version numbers in
-various files based on defined versioning schemes. It supports
-extending additional versioning schemes via a configuration file.
+various files based on defined versioning schemes, with support for
+custom placeholders in the --tag-format parameter.
 
 Author: Thilo Graf
 License: MIT
 
+Available placeholders for --tag-format:
+  {YYYY}, {YY}     - Year (four-digit, two-digit)
+  {MM}             - Month (zero-padded)
+  {DD}             - Day of the month (zero-padded)
+  {hh}, {mm}, {ss} - Hour, minute, second (zero-padded)
+  {major}, {minor}, {patch} - Version numbers
+
 Examples:
-    python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json
-    python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-format release-{major}.{minor}.{patch}
-    python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}'
+  python tagit.py --tag-format 'v{major}.{minor}.{patch}-{YY}{MM}{DD}'
 """
 
 import subprocess
@@ -22,13 +28,14 @@ import sys
 import argparse
 import logging
 import json
+from datetime import datetime
 from git import Repo, GitCommandError
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,  # Default log level
-    format="%(asctime)s [%(levelname)s] %(message)s",  # Log format
-    datefmt="%Y-%m-%d %H:%M:%S",  # Date format
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
@@ -57,12 +64,14 @@ VERSION_SCHEMES = [
         "patterns": {
             "ver_major": r'define\(ver_major,\s*\d+\)',
             "ver_minor": r'define\(ver_minor,\s*\d+\)',
+            "ver_micro": r'define\(ver_micro,\s*\d+\)',
             "ver_patch": r'define\(ver_patch,\s*\d+\)'
         },
         "replacements": {
             "ver_major": 'define(ver_major, {major})',
             "ver_minor": 'define(ver_minor, {minor})',
-            "ver_patch": 'define(ver_patch, {patch})'
+            "ver_micro": 'define(ver_micro, {patch})',  # Assuming 'patch' corresponds to 'micro'
+            "ver_patch": 'define(ver_patch, {patch})'  # If both 'ver_micro' and 'ver_patch' exist
         }
     },
     {
@@ -80,6 +89,51 @@ VERSION_SCHEMES = [
     }
     # Additional schemes can be added here
 ]
+
+def get_placeholder_values(major, minor, patch):
+    """
+    Generates a dictionary mapping placeholders to their actual values.
+
+    Args:
+        major (str): Major version number.
+        minor (str): Minor version number.
+        patch (str): Patch version number.
+
+    Returns:
+        dict: A dictionary of placeholders and their corresponding values.
+    """
+    now = datetime.now()
+    placeholders = {
+        'YYYY': now.strftime('%Y'),
+        'YY': now.strftime('%y'),
+        'MM': now.strftime('%m'),
+        'DD': now.strftime('%d'),
+        'hh': now.strftime('%H'),
+        'mm': now.strftime('%M'),
+        'ss': now.strftime('%S'),
+        'major': major,
+        'minor': minor,
+        'patch': patch,
+    }
+    return placeholders
+
+def format_tag(tag_format, placeholders):
+    """
+    Replaces placeholders in the tag format string with actual values.
+
+    Args:
+        tag_format (str): The tag format string with placeholders.
+        placeholders (dict): A dictionary of placeholder values.
+
+    Returns:
+        str: The formatted tag string.
+    """
+    try:
+        return tag_format.format(**placeholders)
+    except KeyError as e:
+        missing_key = e.args[0]
+        logger.error(f"Placeholder {{{missing_key}}} is not defined. Please provide a valid placeholder.")
+        sys.exit(1)
 
 def get_latest_tag(repo):
     """
@@ -162,7 +216,7 @@ def increment_patch(patch_str, increment):
             parts[i] = str(int(parts[i]) + increment)
             break
     else:
-        # If no numeric part was found, append '.increment'
+        # If no numeric part was found, append the increment
         parts.append(str(increment))
     return '.'.join(parts)
 
@@ -230,26 +284,22 @@ def find_matching_scheme(file_path):
                 return scheme
     return None
 
-def create_git_tag(repo, version, tag_format):
+def create_git_tag(repo, version, tag_format, major, minor, patch):
     """
     Creates a new Git tag with the given version and tag format.
 
     Args:
         repo (git.Repo): The Git repository object.
         version (str): The version number for the tag.
-        tag_format (str): The format string for the tag (e.g., 'v{major}.{minor}.{patch}').
+        tag_format (str): The format string for the tag.
 
     Returns:
         bool: True if the tag was created, False otherwise.
     """
-    major, minor, patch = version.split('.', 2)
-    tag_name = tag_format.format(major=major, minor=minor, patch=patch)
-
-    # Check if tag_format contains all required placeholders
-    required_placeholders = ['{major}', '{minor}', '{patch}']
-    if any(ph not in tag_format for ph in required_placeholders):
-        logger.error(f"The tag format '{tag_format}' must include {', '.join(required_placeholders)}.")
-        sys.exit(1)
+    # Generate placeholder values
+    placeholders = get_placeholder_values(major, minor, patch)
+    # Format the tag name
+    tag_name = format_tag(tag_format, placeholders)
 
     # Check if tag already exists
     if tag_name in [str(tag) for tag in repo.tags]:
@@ -270,11 +320,16 @@ def main():
     """
     # Parse arguments
     parser = argparse.ArgumentParser(
-        description="Automated tagging and version updating.",
-        epilog="Examples:\n"
-               "  python tagit.py -f configure.ac -f opkg-upgrade.sh --scheme-file custom_schemes.json\n"
-               "  python tagit.py --file configure.ac --file opkg-upgrade.sh --tag-format release-{major}.{minor}.{patch}\n"
-               "  python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment",
+        description="Automated tagging and version updating with custom placeholders.",
+        epilog="Available placeholders for --tag-format:\n"
+               "  {YYYY}, {YY}     - Year (four-digit, two-digit)\n"
+               "  {MM}             - Month (zero-padded)\n"
+               "  {DD}             - Day of the month (zero-padded)\n"
+               "  {hh}, {mm}, {ss} - Hour, minute, second (zero-padded)\n"
+               "  {major}, {minor}, {patch} - Version numbers\n"
+               "\nExamples:\n"
+               "  python tagit.py --tag-format '{YYYY}.{MM}.{patch}'\n"
+               "  python tagit.py --tag-format 'v{major}.{minor}.{patch}-{YY}{MM}{DD}'",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
@@ -292,7 +347,7 @@ def main():
         '--tag-format',
         dest='tag_format',
         default='v{major}.{minor}.{patch}',
-        help='Format for the Git tag (default: "v{major}.{minor}.{patch}"). Use "none" or "no" for "{major}.{minor}.{patch}".'
+        help='Format for the Git tag. Use placeholders like {YYYY}, {MM}, {major}, {minor}, {patch}.'
     )
     parser.add_argument(
         '--initial-version',
@@ -305,21 +360,12 @@ def main():
         dest='version_mode',
         choices=['commits', 'increment'],
         default='commits',
-        help='Method to determine the patch version: "commits" (default) sets patch to number of commits since last tag, "increment" increases patch by one.'
+        help='Method to determine the patch version: "commits" sets patch to number of commits since last tag, "increment" increases patch by one.'
     )
     args = parser.parse_args()
 
     # Handle tag_format argument
-    if args.tag_format.lower() in ['none', 'no']:
-        tag_format = '{major}.{minor}.{patch}'
-    else:
-        tag_format = args.tag_format
-
-    # Validate that tag_format contains all required placeholders
-    required_placeholders = ['{major}', '{minor}', '{patch}']
-    if any(ph not in tag_format for ph in required_placeholders):
-        logger.error(f"The tag format '{tag_format}' must include {', '.join(required_placeholders)}.")
-        sys.exit(1)
+    tag_format = args.tag_format
 
     # Handle initial_version argument
     initial_version = args.initial_version
@@ -353,7 +399,6 @@ def main():
         logger.error(f"Error initializing the repository: {e}")
         sys.exit(1)
 
-    # Check if the working directory is clean (modified here)
     if repo.is_dirty():
         logger.error("The working directory is not clean. Please commit or stash your changes.")
         sys.exit(1)
@@ -364,8 +409,9 @@ def main():
     if not full_tag_name:
         # No existing tags found, use initial_version
         version = initial_version
+        major, minor, patch = initial_major, initial_minor, initial_patch
         logger.info(f"No existing tags found. Initializing version to {version}.")
-        # Update files with the initial version if files are specified
+
         if args.files:
             any_update = False
             for file_path in args.files:
@@ -374,9 +420,9 @@ def main():
                     logger.error(f"No supported versioning scheme found in {file_path}. Operation aborted.")
                     sys.exit(1)
                 updated = update_version_in_file(file_path, scheme,
-                                                ver_major=initial_major,
-                                                ver_minor=initial_minor,
-                                                ver_patch=initial_patch)
+                                                ver_major=major,
+                                                ver_minor=minor,
+                                                ver_patch=patch)
                 if updated:
                     any_update = True
 
@@ -393,8 +439,8 @@ def main():
             else:
                 logger.info("No files were updated.")
         # Create the initial tag
-        tag_created = create_git_tag(repo, version, tag_format)
-        logger.info(f"Latest tag: {tag_format.format(major=initial_major, minor=initial_minor, patch=initial_patch)}, commits since tag: 0")
+        tag_created = create_git_tag(repo, version, tag_format, major, minor, patch)
+        logger.info(f"Latest tag: {format_tag(tag_format, get_placeholder_values(major, minor, patch))}, commits since tag: 0")
     else:
         logger.info(f"Latest tag: {full_tag_name}")
         # Count the number of commits since the latest tag
@@ -442,10 +488,10 @@ def main():
                 logger.info("No files specified with -f/--file. Only a new tag will be created without updating any files.")
 
             # Create new Git tag
-            tag_created = create_git_tag(repo, version, tag_format)
+            tag_created = create_git_tag(repo, version, tag_format, major, minor, new_patch)
 
             if not tag_created:
-                logger.warning(f"Tag {tag_format.format(major=major, minor=minor, patch=new_patch)} already exists. Skipping tag creation.")
+                logger.warning(f"Tag {format_tag(tag_format, get_placeholder_values(major, minor, new_patch))} already exists. Skipping tag creation.")
         else:
             # Exactly on the latest tag
             version = f"{major}.{minor}.{patch}"
@@ -477,7 +523,7 @@ def main():
                         logger.error(f"Error while committing: {e}")
                         sys.exit(1)
                     # Optionally, create a new tag if desired
-                    create_git_tag(repo, version, tag_format)
+                    create_git_tag(repo, version, tag_format, major, minor, patch)
                 else:
                     logger.info("No files were updated and the repository is up to date.")
             else:
