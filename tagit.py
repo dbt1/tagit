@@ -32,24 +32,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Define the supported versioning schemes
+# Define supported versioning schemes
 VERSION_SCHEMES = [
     {
         "name": "ac_init",
         "patterns": {
-            "version": r'(AC_INIT\(\[.*?\],\s*\[)\d+\.\d+\.\d+(\],\s*\[.*?\]\))'
+            "version": r'(AC_INIT\(\[.*?\],\s*\[)\d+(\.\d+)+(\],\s*\[.*?\]\))'
         },
         "replacements": {
-            "version": r'\g<1>{major}.{minor}.{micro}\g<2>'
+            "version": r'\g<1>{major}.{minor}.{patch}\g<3>'
         }
     },
     {
         "name": "version_assignment",
         "patterns": {
-            "version": r'VERSION\s*=\s*"\d+\.\d+\.\d+"'
+            "version": r'(VERSION|version)\s*=\s*"\d+(\.\d+)+"'
         },
         "replacements": {
-            "version": 'VERSION = "{major}.{minor}.{micro}"'
+            "version": r'\1="{major}.{minor}.{patch}"'
         }
     },
     {
@@ -57,12 +57,12 @@ VERSION_SCHEMES = [
         "patterns": {
             "ver_major": r'define\(ver_major,\s*\d+\)',
             "ver_minor": r'define\(ver_minor,\s*\d+\)',
-            "ver_micro": r'define\(ver_micro,\s*\d+\)'
+            "ver_patch": r'define\(ver_patch,\s*\d+\)'
         },
         "replacements": {
             "ver_major": 'define(ver_major, {major})',
             "ver_minor": 'define(ver_minor, {minor})',
-            "ver_micro": 'define(ver_micro, {micro})'
+            "ver_patch": 'define(ver_patch, {patch})'
         }
     },
     {
@@ -81,7 +81,6 @@ VERSION_SCHEMES = [
     # Additional schemes can be added here
 ]
 
-
 def get_latest_tag(repo):
     """
     Retrieves the latest Git tag and its components.
@@ -90,51 +89,84 @@ def get_latest_tag(repo):
         repo (git.Repo): The Git repository object.
 
     Returns:
-        tuple: (tag_version, major, minor, patch)
-            - tag_version (str): The latest tag (e.g., 'v0.1.6').
+        tuple: (full_tag_name, version_str, major, minor, patch)
+            - full_tag_name (str): The full tag name in Git (e.g., 'v0.4.1.0').
+            - version_str (str): The tag name without the 'v' prefix (e.g., '0.4.1.0').
             - major (str): Major version number.
             - minor (str): Minor version number.
-            - patch (str): Patch version number.
+            - patch (str): Patch version number (may have multiple subparts).
     """
     try:
-        latest_tag = repo.git.describe('--tags', '--abbrev=0')
-        latest_tag = latest_tag.strip()
-        # Extract version numbers assuming the format contains {major}.{minor}.{patch}
-        match_tag = re.match(r'.*?(\d+)\.(\d+)\.(\d+)$', latest_tag)
-        if not match_tag:
-            logger.error(f"The latest tag '{latest_tag}' does not match the expected format MAJOR.MINOR.PATCH.")
-            return None, None, None, None
+        full_tag_name = repo.git.describe('--tags', '--abbrev=0').strip()
+        version_str = full_tag_name
+        # Remove 'v' or 'V' prefix if present
+        if version_str.lower().startswith('v'):
+            version_str = version_str[1:]
 
-        major = match_tag.group(1)
-        minor = match_tag.group(2)
-        patch = match_tag.group(3)
+        # Split the tag based on dots
+        parts = version_str.split('.')
 
-        return latest_tag, major, minor, patch
+        if len(parts) < 2:
+            logger.error(f"The latest tag '{version_str}' does not have at least MAJOR.MINOR parts.")
+            return None, None, None, None, None
+
+        major = parts[0]
+        minor = parts[1]
+        patch_parts = parts[2:]  # All remaining parts as patch components
+
+        # Check if Major and Minor are numeric
+        if not (major.isdigit() and minor.isdigit()):
+            logger.error(f"The major or minor version in tag '{version_str}' is not numeric.")
+            return None, None, None, None, None
+
+        # Patch can have multiple parts
+        patch = '.'.join(patch_parts) if patch_parts else '0'
+
+        return full_tag_name, version_str, major, minor, patch
 
     except GitCommandError:
-        return None, None, None, None
+        return None, None, None, None, None
 
-
-def get_commits_since_tag(repo, latest_tag):
+def get_commits_since_tag(repo, full_tag_name):
     """
     Retrieves the number of commits since the latest tag.
 
     Args:
         repo (git.Repo): The Git repository object.
-        latest_tag (str): The latest tag.
+        full_tag_name (str): The full tag name in Git.
 
     Returns:
         int: Number of commits since the latest tag.
     """
     try:
-        commits_since_tag = repo.git.rev_list(f"{latest_tag}..HEAD", '--count')
+        commits_since_tag = repo.git.rev_list(f"{full_tag_name}..HEAD", '--count')
         commits_since_tag = int(commits_since_tag.strip())
         return commits_since_tag
     except GitCommandError:
         return 0
 
+def increment_patch(patch_str, increment):
+    """
+    Increases the last numeric part of the patch string by the given increment.
 
-def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
+    Args:
+        patch_str (str): The patch string (e.g., '1.0' or '1').
+        increment (int): The value to add to the last numeric part.
+
+    Returns:
+        str: The new patch string with the incremented last numeric part.
+    """
+    parts = patch_str.split('.')
+    for i in range(len(parts)-1, -1, -1):
+        if parts[i].isdigit():
+            parts[i] = str(int(parts[i]) + increment)
+            break
+    else:
+        # If no numeric part was found, append '.increment'
+        parts.append(str(increment))
+    return '.'.join(parts)
+
+def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_patch):
     """
     Updates the given file with the new version based on the provided scheme.
 
@@ -143,7 +175,7 @@ def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
         scheme (dict): The versioning scheme to be used.
         ver_major (str): The major version number.
         ver_minor (str): The minor version number.
-        ver_micro (str): The patch version.
+        ver_patch (str): The patch version number (may have multiple subparts).
 
     Returns:
         bool: True if the file was updated, False otherwise.
@@ -161,8 +193,7 @@ def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
         replacement = scheme["replacements"][key].format(
             major=ver_major,
             minor=ver_minor,
-            micro=ver_micro,
-            patch=ver_micro  # Assuming patch is same as micro
+            patch=ver_patch
         )
         new_content = re.sub(pattern, replacement, new_content)
 
@@ -170,12 +201,11 @@ def update_version_in_file(file_path, scheme, ver_major, ver_minor, ver_micro):
     if new_content != content:
         with open(file_path, 'w') as file:
             file.write(new_content)
-        logger.info(f"{file_path} updated to version {ver_major}.{ver_minor}.{ver_micro}.")
+        logger.info(f"{file_path} updated to version {ver_major}.{ver_minor}.{ver_patch}.")
         return True
     else:
-        logger.info(f"{file_path} is already up to date: {ver_major}.{ver_minor}.{ver_micro}")
+        logger.info(f"{file_path} is already up to date: {ver_major}.{ver_minor}.{ver_patch}")
         return False
-
 
 def find_matching_scheme(file_path):
     """
@@ -200,7 +230,6 @@ def find_matching_scheme(file_path):
                 return scheme
     return None
 
-
 def create_git_tag(repo, version, tag_format):
     """
     Creates a new Git tag with the given version and tag format.
@@ -213,10 +242,10 @@ def create_git_tag(repo, version, tag_format):
     Returns:
         bool: True if the tag was created, False otherwise.
     """
-    major, minor, patch = version.split('.')
+    major, minor, patch = version.split('.', 2)
     tag_name = tag_format.format(major=major, minor=minor, patch=patch)
 
-    # Validate that tag_format contains all required placeholders
+    # Check if tag_format contains all required placeholders
     required_placeholders = ['{major}', '{minor}', '{patch}']
     if any(ph not in tag_format for ph in required_placeholders):
         logger.error(f"The tag format '{tag_format}' must include {', '.join(required_placeholders)}.")
@@ -234,7 +263,6 @@ def create_git_tag(repo, version, tag_format):
     except GitCommandError as e:
         logger.error(f"Error while creating the tag: {e}")
         sys.exit(1)
-
 
 def main():
     """
@@ -328,9 +356,9 @@ def main():
         sys.exit(1)
 
     # Get the latest tag and its components
-    latest_tag, major, minor, patch = get_latest_tag(repo)
+    full_tag_name, version_str, major, minor, patch = get_latest_tag(repo)
 
-    if not latest_tag:
+    if not full_tag_name:
         # No existing tags found, use initial_version
         version = initial_version
         logger.info(f"No existing tags found. Initializing version to {version}.")
@@ -345,7 +373,7 @@ def main():
                 updated = update_version_in_file(file_path, scheme,
                                                 ver_major=initial_major,
                                                 ver_minor=initial_minor,
-                                                ver_micro=initial_patch)
+                                                ver_patch=initial_patch)
                 if updated:
                     any_update = True
 
@@ -365,17 +393,17 @@ def main():
         tag_created = create_git_tag(repo, version, tag_format)
         logger.info(f"Latest tag: {tag_format.format(major=initial_major, minor=initial_minor, patch=initial_patch)}, commits since tag: 0")
     else:
-        logger.info(f"Latest tag: {latest_tag}")
+        logger.info(f"Latest tag: {full_tag_name}")
         # Count the number of commits since the latest tag
-        commits_since_tag = get_commits_since_tag(repo, latest_tag)
+        commits_since_tag = get_commits_since_tag(repo, full_tag_name)
         logger.info(f"Commits since tag: {commits_since_tag}")
 
         if commits_since_tag > 0:
             # Determine new patch based on version_mode
             if args.version_mode == 'commits':
-                new_patch = int(patch) + commits_since_tag
+                new_patch = increment_patch(patch, commits_since_tag)
             elif args.version_mode == 'increment':
-                new_patch = int(patch) + 1
+                new_patch = increment_patch(patch, 1)
             version = f"{major}.{minor}.{new_patch}"
             logger.info(f"New commits found since the last tag: {version}")
 
@@ -390,7 +418,7 @@ def main():
                     updated = update_version_in_file(file_path, scheme,
                                                     ver_major=major,
                                                     ver_minor=minor,
-                                                    ver_micro=str(new_patch))
+                                                    ver_patch=new_patch)
                     if updated:
                         any_update = True
 
@@ -431,7 +459,7 @@ def main():
                     updated = update_version_in_file(file_path, scheme,
                                                     ver_major=major,
                                                     ver_minor=minor,
-                                                    ver_micro=patch)
+                                                    ver_patch=patch)
                     if updated:
                         any_update = True
 
@@ -453,7 +481,6 @@ def main():
                 logger.info("No new commits and no files specified. The repository is up to date. No action is needed.")
 
     logger.info("Script executed successfully.")
-
 
 if __name__ == "__main__":
     main()
