@@ -323,11 +323,13 @@ def main():
 
     # Handle initial_version argument
     initial_version = args.initial_version
-    initial_version_match = re.match(r'^(\d+)\.(\d+)\.(\d+)$', initial_version)
+    initial_version_match = re.match(r'^(\d+)\.(\d+)(?:\.(.+))?$', initial_version)
     if not initial_version_match:
-        logger.error(f"The initial version '{initial_version}' does not match the expected format MAJOR.MINOR.PATCH.")
+        logger.error(f"The initial version '{initial_version}' does not match the expected format MAJOR.MINOR[.PATCH].")
         sys.exit(1)
-    initial_major, initial_minor, initial_patch = initial_version_match.groups()
+    initial_major = initial_version_match.group(1)
+    initial_minor = initial_version_match.group(2)
+    initial_patch = initial_version_match.group(3) if initial_version_match.group(3) else '0'
 
     # Load additional versioning schemes if specified
     if args.scheme_file:
@@ -351,7 +353,8 @@ def main():
         logger.error(f"Error initializing the repository: {e}")
         sys.exit(1)
 
-    if repo.is_dirty(untracked_files=True):
+    # Check if the working directory is clean (modified here)
+    if repo.is_dirty():
         logger.error("The working directory is not clean. Please commit or stash your changes.")
         sys.exit(1)
 
