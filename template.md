@@ -35,11 +35,11 @@
 
 ## Funktionen
 
-- **Automatisches Git-Tagging**: Erstellt Git-Tags für deine Commits, um eine einfache Versionsverfolgung zu ermöglichen.
-- **Versionsaktualisierung in Projektdateien**: Aktualisiert Versionsnummern in angegebenen Dateien basierend auf vordefinierten Versionierungsschemata.
-- **Benutzerdefinierte Versionierungsschemata**: Unterstützt zusätzliche Versionierungsschemata über eine `json`-Konfigurationsdatei.
-- **Flexibles Tag-Format**: Definiere ein benutzerdefiniertes Tag-Format mit Platzhaltern für Major-, Minor- und Patch-Versionen.
-- **Initialversion und Versionsmodus**: Ermöglicht das Setzen einer Initialversion und die Wahl zwischen unterschiedlichen Methoden zur Patch-Bestimmung (Anzahl der Commits oder Inkrementierung).
+- **Automatisches Git-Tagging**: Erzeugt Git-Tags basierend nach unterschiedlichen Methoden zur Patch-Bestimmung (Anzahl der Commits oder Inkrementierung)..
+- **Versionsaktualisierung in Projektdateien**: Aktualisiert Versionsnummern in angegebenen Dateien basierend auf vordefinierten Versionierungsschemata. Unterstützt verschiedene Versionierungsformate (z. B. AC_INIT, VERSION = "X.X.X", define(ver_major, X))
+- **Benutzerdefinierte Versionierungsschemata**: Unterstützt zusätzliche Versionierungsschemata über eine `json`-Schema-Konfigurationsdatei.
+- **Flexibles Tag-Format**: Ermöglicht das Definieren benutzerdefinierter Tag-Formate mit Platzhaltern für Major-, Minor- und Patch-Versionen durch anpassbare Formate mit Platzhaltern wie {YYYY}, {MM}, {DD}, {major}, {minor}, und {patch}, auch für Datum und Zeit: Verwende {YYYY}, {MM}, {DD}, {hh}, {mm}, {ss} zur automatischen Integration des aktuellen Datums und der Uhrzeit.
+- **Initialversion und Versionsmodus**: Ermöglicht das Setzen einer Initialversion.
 
 ## Anforderungen
 
@@ -102,17 +102,33 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py -f configure.ac -f version.txt
   ```
-- Zusätzliche Versionierungsschemata mit einer `JSON`-Konfigurationsdatei angeben:
+- Zusätzliche Versionierungsschemata mit einer `JSON`-Schema-Konfigurationsdatei:
   ```sh
   python tagit.py --file configure.ac --file version.txt --scheme-file custom_schemes.json
   ```
-- Benutzerdefiniertes Tag-Format angeben:
+- Tagging mit Versionierungsschemata aus einer `JSON`-Schema-Konfigurationsdatei
+  ```sh
+  python tagit.py --scheme-file custom_schemes.json --tag-format '{major}.{minor}.{patch}'
+  ```
+- Benutzerdefiniertes Tag-Format:
   ```sh
   python tagit.py --file configure.ac --tag-format release-{major}.{minor}.{patch}
   ```
 - Initialversion setzen und Patch-Version inkrementieren:
   ```sh
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
+  ```
+- Tagging mit Jahres- und Monatsplatzhaltern
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}'
+  ```
+- Tagging mit Datum und Uhrzeit
+  ```sh
+  python tagit.py --tag-format 'v{major}.{minor}.{patch}-{YY}{MM}{DD}-{hh}{mm}{ss}'
+  ```
+- Tagging mit Jahr, Monat
+  ```sh
+  python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
 
 ### Git Hook Integration
