@@ -2,19 +2,17 @@
 [
     {
         "name": "ac_init",
-        "_comment": "Ersetzt die Versionsnummer in Autoconf 'configure.ac' Dateien, die die AC_INIT-Makro verwenden.",
         "patterns": {
-            "version": "(AC_INIT\\(\\[.*?\\],\\s*\\[)\\d+\\.\\d+\\.\\d+(\\],\\s*\\[.*?\\]\\))"
+            "version": "(AC_INIT\\(\\[.*?\\],\\s*\\[)\\d+(\\.\\d+)+(\\],\\s*\\[.*?\\]\\))"
         },
         "replacements": {
-            "version": "\\g<1>{major}.{minor}.{micro}\\g<2>"
+            "version": "\\1{major}.{minor}.{patch}\\3"
         }
     },
     {
         "name": "version_assignment",
-        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
         "patterns": {
-            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
+            "version": "(VERSION|version)\\s*=\\s*\"\\d+(\\.\\d+)+\""
         },
         "replacements": {
             "version": "\\1=\"{major}.{minor}.{patch}\""
@@ -22,21 +20,21 @@
     },
     {
         "name": "define_ver",
-        "_comment": "Ersetzt Versionsdefinitionen in Dateien, die 'define'-Makros verwenden.",
         "patterns": {
             "ver_major": "define\\(ver_major,\\s*\\d+\\)",
             "ver_minor": "define\\(ver_minor,\\s*\\d+\\)",
-            "ver_micro": "define\\(ver_micro,\\s*\\d+\\)"
+            "ver_micro": "define\\(ver_micro,\\s*\\d+\\)",
+            "ver_patch": "define\\(ver_patch,\\s*\\d+\\)"
         },
         "replacements": {
             "ver_major": "define(ver_major, {major})",
             "ver_minor": "define(ver_minor, {minor})",
-            "ver_micro": "define(ver_micro, {micro})"
+            "ver_micro": "define(ver_micro, {patch})",
+            "ver_patch": "define(ver_patch, {patch})"
         }
     },
     {
         "name": "env_version",
-        "_comment": "Ersetzt Umgebungsvariablenzuweisungen für Versionsnummern.",
         "patterns": {
             "VERSION_MAJOR": "VERSION_MAJOR=\"\\d+\"",
             "VERSION_MINOR": "VERSION_MINOR=\"\\d+\"",
@@ -49,67 +47,12 @@
         }
     },
     {
-        "name": "python_setup",
-        "_comment": "Ersetzt die Versionsnummer in Python 'setup.py' Dateien.",
+        "name": "version_colon_format",
         "patterns": {
-            "version": "version=\\\"\\d+\\.\\d+\\.\\d+\\\""
+            "version": "Version:\\s*\\d+(\\.\\d+)+"
         },
         "replacements": {
-            "version": "version=\"{major}.{minor}.{patch}\""
-        }
-    },
-    {
-        "name": "package_json",
-        "_comment": "Ersetzt die Versionsnummer in 'package.json' Dateien für Node.js Projekte.",
-        "patterns": {
-            "version": "\"version\":\\s*\"\\d+\\.\\d+\\.\\d+\""
-        },
-        "replacements": {
-            "version": "\"version\": \"{major}.{minor}.{patch}\""
-        }
-    },
-    {
-        "name": "cpp_header",
-        "_comment": "Ersetzt Versionsnummern in C++ Header-Dateien.",
-        "patterns": {
-            "VERSION_MAJOR": "#define\\s+VERSION_MAJOR\\s+\\d+",
-            "VERSION_MINOR": "#define\\s+VERSION_MINOR\\s+\\d+",
-            "VERSION_PATCH": "#define\\s+VERSION_PATCH\\s+\\d+"
-        },
-        "replacements": {
-            "VERSION_MAJOR": "#define VERSION_MAJOR {major}",
-            "VERSION_MINOR": "#define VERSION_MINOR {minor}",
-            "VERSION_PATCH": "#define VERSION_PATCH {patch}"
-        }
-    },
-    {
-        "name": "xml_version",
-        "_comment": "Ersetzt Versionsnummern in XML-Dateien.",
-        "patterns": {
-            "version": "<version>\\d+\\.\\d+\\.\\d+</version>"
-        },
-        "replacements": {
-            "version": "<version>{major}.{minor}.{patch}</version>"
-        }
-    },
-    {
-        "name": "ini_version",
-        "_comment": "Ersetzt Versionsnummern in INI-Konfigurationsdateien.",
-        "patterns": {
-            "version": "version=\\d+\\.\\d+\\.\\d+"
-        },
-        "replacements": {
-            "version": "version={major}.{minor}.{patch}"
-        }
-    },
-    {
-        "name": "markdown_badge",
-        "_comment": "Ersetzt Versions-Badges in 'README.md' Dateien.",
-        "patterns": {
-            "version": "\\[!\\[Version\\]\\(https://img\\.shields\\.io/badge/version-\\d+\\.\\d+\\.\\d+-blue\\.svg\\)\\]\\(.*?\\)"
-        },
-        "replacements": {
-            "version": "[![Version](https://img.shields.io/badge/version-{major}.{minor}.{patch}-blue.svg)](URL_ZU_DEINEM_PROJEKT)"
+            "version": "Version: {major}.{minor}.{patch}"
         }
     }
 ]
