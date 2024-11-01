@@ -20,6 +20,7 @@ Version: 0.2.0
     - [Erklärung zu jedem Schema](#erklärung-zu-jedem-schema)
       - [ac\_init](#ac_init)
       - [version\_assignment](#version_assignment)
+      - [version\_colon\_format](#version_colon_format)
       - [define\_ver](#define_ver)
       - [env\_version](#env_version)
       - [python\_setup](#python_setup)
@@ -136,7 +137,11 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
+- Dateien aktualisieren ohne Tag zu erstellen:
 
+  ```sh
+  python tagit.py -f configure.ac --no-tag
+  ```
 ### Git Hook Integration
 
 Du kannst `Tagit` in deinen Git-Workflow integrieren, indem du es als Pre-Push Hook verwendest. Dies stellt sicher, dass die Versionsnummern und Tags automatisch aktualisiert werden, bevor du Änderungen ins Remote-Repository pushst.
@@ -244,6 +249,16 @@ Hier ist ein Beispiel für eine JSON-Konfigurationsdatei, die benutzerdefinierte
         }
     },
     {
+        "name": "version_colon_format",
+        "_comment": "Updates version numbers in files with the format 'Version: X.X.X'.",
+        "patterns": {
+            "version": "Version:\\s*\\d+(\\.\\d+)+"
+        },
+        "replacements": {
+            "version": "Version: {major}.{minor}.{patch}"
+        }
+    },
+    {
         "name": "python_setup",
         "_comment": "Updates the version number in Python 'setup.py' files.",
         "patterns": {
@@ -318,6 +333,7 @@ Hier ist ein Beispiel für eine JSON-Konfigurationsdatei, die benutzerdefinierte
         }
     }
 ]
+
 ```
 
 ### Erklärung zu jedem Schema
@@ -337,6 +353,15 @@ Hier ist ein Beispiel für eine JSON-Konfigurationsdatei, die benutzerdefinierte
   VERSION = "0.1.0"
   ```
 - **Beschreibung**: Sucht nach Zeilen, die `VERSION = "..."` enthalten, und ersetzt die Version.
+
+#### version_colon_format
+
+- **Zweck**: Aktualisiert Versionsnummern in Dateien mit dem Format Version: X.X.X.
+- **Beispiel**:
+  ```txt
+  Version: 0.0.0
+  ``` 
+**Beschreibung**: Sucht nach Zeilen, die mit Version: beginnen und eine Versionsnummer enthalten, und aktualisiert diese.
 
 #### define_ver
 - **Zweck**: Versionsdefinitionen in Dateien unter Verwendung von Makros.
