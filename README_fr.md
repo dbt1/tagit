@@ -4,6 +4,8 @@
 
 # Tagit - Balisage Git automatique et mise à jour de version
 
+Version : 0.2.0
+
 ## Table des matières
 
 - [Tagit - Balisage Git automatique et mise à jour de version](#tagit---balisage-git-automatique-et-mise-à-jour-de-version)
@@ -22,6 +24,7 @@
     - [Explication de chaque schéma](#explication-de-chaque-schéma)
       - [ac\_init](#ac_init)
       - [version\_assignment](#version_assignment)
+      - [version\_colon\_format](#version_colon_format)
       - [définir\_ver](#définir_ver)
       - [env\_version](#env_version)
       - [python\_setup](#python_setup)
@@ -42,7 +45,7 @@
 - **Automatic Git Tagging** : génère des balises Git en fonction de différentes méthodes de détermination de correctifs (nombre de commits ou incrémentation).
 - **Mise à jour de version dans les fichiers de projet** : met à jour les numéros de version dans les fichiers spécifiés en fonction de schémas de version prédéfinis. Prend en charge divers formats de version (par exemple AC_INIT, VERSION = "X.X.X", definition(ver_major, X))
 - **Schémas de version personnalisés** : prend en charge des schémas de version supplémentaires via un fichier de configuration de schéma `json` ​​​​.
-- **Format de balise flexible** : vous permet de définir des formats de balises génériques personnalisés pour les versions majeures, mineures et de correctifs via des formats de caractères génériques personnalisables tels que {AAAA}, {MM}, {JJ}, {majeur}, {mineur}, et {patch}, également pour la date et l'heure : utilisez {YYYY}, {MM}, {DD}, {hh}, {mm}, {ss} pour intégrer automatiquement la date et l'heure actuelles.
+- **Format de balise flexible** : vous permet de définir des formats de balises génériques personnalisés pour les versions majeures, mineures et de correctifs via des formats génériques personnalisables tels que {AAAA}, {MM}, {JJ}, {majeur}, {mineur}, et {patch}, également pour la date et l'heure : utilisez {YYYY}, {MM}, {DD}, {hh}, {mm}, {ss} pour intégrer automatiquement la date et l'heure actuelles.
 - **Version initiale et mode version** : Permet de définir une version initiale.
 
 ## Exigences
@@ -138,7 +141,11 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
+- Mettre à jour les fichiers sans créer de tag :
 
+  ```sh
+  python tagit.py -f configure.ac --no-tag
+  ```
 ### Intégration du crochet Git
 
 Vous pouvez intégrer `Tagit` dans votre workflow Git en l'utilisant comme hook de pré-push. Cela garantit que les numéros de version et les balises sont automatiquement mis à jour avant que vous n'appliquiez les modifications au référentiel distant.
@@ -246,6 +253,16 @@ Voici un exemple de fichier de configuration JSON qui définit des schémas de g
         }
     },
     {
+        "name": "version_colon_format",
+        "_comment": "Updates version numbers in files with the format 'Version: X.X.X'.",
+        "patterns": {
+            "version": "Version:\\s*\\d+(\\.\\d+)+"
+        },
+        "replacements": {
+            "version": "Version: {major}.{minor}.{patch}"
+        }
+    },
+    {
         "name": "python_setup",
         "_comment": "Updates the version number in Python 'setup.py' files.",
         "patterns": {
@@ -320,6 +337,7 @@ Voici un exemple de fichier de configuration JSON qui définit des schémas de g
         }
     }
 ]
+
 ```
 
 ### Explication de chaque schéma
@@ -339,6 +357,15 @@ Voici un exemple de fichier de configuration JSON qui définit des schémas de g
   VERSION = "0.1.0"
   ```
 - **Description** : Recherche les lignes contenant `VERSION = "..."` et remplace la version.
+
+#### version_colon_format
+
+- **Objectif** : Met à jour les numéros de version dans les fichiers avec la version : format X.X.X.
+- **Exemple**:
+  ```txt
+  Version: 0.0.0
+  ``` 
+**Description** : recherche les lignes commençant par version : et contenant un numéro de version et les met à jour.
 
 #### définir_ver
 - **Objectif** : Définitions de versions dans des fichiers à l'aide de macros.
@@ -432,7 +459,7 @@ Voici un exemple de fichier de configuration JSON qui définit des schémas de g
 
 ## Enregistrement
 
-`Tagit` fournit une journalisation détaillée de chaque action entreprise. Les entrées du journal incluent :
+`Tagit` fournit une journalisation détaillée pour chaque action effectuée. Les entrées du journal incluent :
 
 - Mises à jour de versions dans les fichiers
 - Actions de marquage Git

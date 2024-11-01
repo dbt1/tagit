@@ -4,6 +4,8 @@
 
 # Tagit: tagging Git automatico e aggiornamento della versione
 
+Versione: 0.2.0
+
 ## Sommario
 
 - [Tagit - Tagging Git automatico e aggiornamento della versione](#tagit-tagging-git-automatico-e-aggiornamento-della-versione)
@@ -22,6 +24,7 @@
     - [Spiegazione di ogni schema](#spiegazione-di-ogni-schema)
       - [ac\_init](#ac_init)
       - [versione\_assegnazione](#assegnazione_versione)
+      - [versione\_colon\_formato](#versione_colon_format)
       - [definisci\_ver](#define_ver)
       - [env\_versione](#env_version)
       - [python\_setup](#python_setup)
@@ -40,7 +43,7 @@
 ## Caratteristiche
 
 - **Tagging Git automatico**: genera tag Git in base a diversi metodi di determinazione delle patch (numero di commit o incremento).
-- **Aggiornamento versione nei file di progetto**: aggiorna i numeri di versione nei file specificati in base a schemi di controllo delle versioni predefiniti. Supporta vari formati di versione (ad esempio AC_INIT, VERSION = "X.X.X", define(ver_major, X))
+- **Aggiornamento versione nei file di progetto**: aggiorna i numeri di versione nei file specificati in base a schemi di versione predefiniti. Supporta vari formati di versione (ad esempio AC_INIT, VERSION = "X.X.X", define(ver_major, X))
 - **Schemi di controllo delle versioni personalizzati**: supporta schemi di controllo delle versioni aggiuntivi tramite un file di configurazione dello schema `json`.
 - **Formato tag flessibile**: consente di definire formati di tag con caratteri jolly personalizzati per le versioni principali, secondarie e patch tramite formati con caratteri jolly personalizzabili come {AAAA}, {MM}, {DD}, {major}, {minor}, e {patch}, anche per data e ora: utilizzare {AAAA}, {MM}, {GG}, {hh}, {mm}, {ss} per integrare automaticamente la data e l'ora correnti.
 - **Versione iniziale e modalità versione**: consente di impostare una versione iniziale.
@@ -138,7 +141,11 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
+- Aggiorna i file senza creare un tag:
 
+  ```sh
+  python tagit.py -f configure.ac --no-tag
+  ```
 ### Integrazione dell'hook Git
 
 Puoi integrare `Tagit` nel tuo flusso di lavoro Git utilizzandolo come hook pre-push. Ciò garantisce che i numeri di versione e i tag vengano aggiornati automaticamente prima di inviare modifiche al repository remoto.
@@ -246,6 +253,16 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
         }
     },
     {
+        "name": "version_colon_format",
+        "_comment": "Updates version numbers in files with the format 'Version: X.X.X'.",
+        "patterns": {
+            "version": "Version:\\s*\\d+(\\.\\d+)+"
+        },
+        "replacements": {
+            "version": "Version: {major}.{minor}.{patch}"
+        }
+    },
+    {
         "name": "python_setup",
         "_comment": "Updates the version number in Python 'setup.py' files.",
         "patterns": {
@@ -320,6 +337,7 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
         }
     }
 ]
+
 ```
 
 ### Spiegazione di ogni schema
@@ -340,6 +358,15 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
   ```
 - **Descrizione**: cerca le righe contenenti `VERSION = "..."` e sostituisce la versione.
 
+#### versione_colon_format
+
+- **Scopo**: aggiorna i numeri di versione nei file con versione: formato X.X.X.
+- **Esempio**:
+  ```txt
+  Version: 0.0.0
+  ``` 
+**Descrizione**: Cerca le righe che iniziano con versione: e contengono un numero di versione e le aggiorna.
+
 #### define_ver
 - **Scopo**: definizioni di versione nei file che utilizzano macro.
 - **Esempio**:
@@ -348,7 +375,7 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
   define(ver_minor, 1)
   define(ver_micro, 0)
   ```
-- **Descrizione**: Sostituisce le versioni principali, secondarie e patch nelle macro.
+- **Descrizione**: sostituisce le versioni principali, secondarie e patch nelle macro.
 
 #### env_version
 - **Scopo**: imposta i numeri di versione per le variabili di ambiente.
@@ -432,7 +459,7 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
 
 ## Registrazione
 
-`Tagit` fornisce una registrazione dettagliata per ogni azione intrapresa. Le voci di registro includono:
+`Tagit` fornisce una registrazione dettagliata per ogni azione eseguita. Le voci del registro includono:
 
 - Aggiornamenti della versione nei file
 - Azioni di tagging di Git

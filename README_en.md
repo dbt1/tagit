@@ -4,6 +4,8 @@
 
 # Tagit - Automatic Git tagging and version updating
 
+Version: 0.2.0
+
 ## Table of contents
 
 - [Tagit - Automatic Git tagging and version updating](#tagit---automatic-git-tagging-and-version-updating)
@@ -22,6 +24,7 @@
     - [Explanation of each scheme](#explanation-of-each-scheme)
       - [ac\_init](#ac_init)
       - [version\_assignment](#version_assignment)
+      - [version\_colon\_format](#version_colon_format)
       - [define\_ver](#define_ver)
       - [env\_version](#env_version)
       - [python\_setup](#python_setup)
@@ -138,14 +141,18 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
+- Update files without creating a tag:
 
+  ```sh
+  python tagit.py -f configure.ac --no-tag
+  ```
 ### Git hook integration
 
 You can integrate `Tagit` into your Git workflow by using it as a pre-push hook. This ensures that version numbers and tags are automatically updated before you push changes to the remote repository.
 
 Here is a guide to use the script as a pre-push hook:
 
-1. Create the Git hook folder if it doesn't exist:
+1. Create the Git hook folder if it does not exist:
 
    ```sh
    mkdir -p .git/hooks
@@ -246,6 +253,16 @@ Here is an example JSON configuration file that defines custom versioning scheme
         }
     },
     {
+        "name": "version_colon_format",
+        "_comment": "Updates version numbers in files with the format 'Version: X.X.X'.",
+        "patterns": {
+            "version": "Version:\\s*\\d+(\\.\\d+)+"
+        },
+        "replacements": {
+            "version": "Version: {major}.{minor}.{patch}"
+        }
+    },
+    {
         "name": "python_setup",
         "_comment": "Updates the version number in Python 'setup.py' files.",
         "patterns": {
@@ -320,6 +337,7 @@ Here is an example JSON configuration file that defines custom versioning scheme
         }
     }
 ]
+
 ```
 
 ### Explanation of each scheme
@@ -339,6 +357,15 @@ Here is an example JSON configuration file that defines custom versioning scheme
   VERSION = "0.1.0"
   ```
 - **Description**: Searches for lines containing `VERSION = "..."` and replaces the version.
+
+#### version_colon_format
+
+- **Purpose**: Updates version numbers in files with version: X.X.X format.
+- **Example**:
+  ```txt
+  Version: 0.0.0
+  ``` 
+**Description**: Searches for lines that start with version: and contain a version number and updates them.
 
 #### define_ver
 - **Purpose**: Version definitions in files using macros.
@@ -432,7 +459,7 @@ Here is an example JSON configuration file that defines custom versioning scheme
 
 ## Logging
 
-`Tagit` provides detailed logging for every action taken. Log entries include:
+`Tagit` provides detailed logging for every action performed. Log entries include:
 
 - Version updates in files
 - Git tagging actions

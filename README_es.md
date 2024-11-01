@@ -4,6 +4,8 @@
 
 # Tagit: etiquetado automático de Git y actualización de versiones
 
+Versión: 0.2.0
+
 ## Tabla de contenido
 
 - [Tagit - Etiquetado automático de Git y actualización de versión](#tagit-etiquetado-automático-de-git-y-actualización-de-versiones)
@@ -11,17 +13,18 @@
   - [Características](#características)
   - [Requisitos](#requisitos)
     - [Usar entorno virtual (recomendado)](#usar-entorno-virtual-recomendado)
-    - [En todo el sistema](#todo-el-sistema)
+    - [Todo el sistema](#todo-el-sistema)
   - [Instalación](#instalación)
   - [Uso](#usar)
     - [Ejemplos](#ejemplos)
     - [Integración de Git Hook](#integración-de-gancho-git)
-  - [Esquemas de versiones soportados](#esquemas-de-versiones-soportados)
+  - [Esquemas de versiones admitidos](#esquemas-de-versiones-soportados)
   - [Esquemas de versiones personalizados](#esquemas-de-versiones-personalizados)
     - [Ejemplo de archivo de configuración JSON](#ejemplo-de-archivo-de-configuración-json)
     - [Explicación de cada esquema](#explicación-de-cada-esquema)
       - [ac\_init](#ac_init)
       - [versión\_asignación](#asignación_versión)
+      - [versión\_dos puntos\_formato](#versión_dos-puntos_formato)
       - [definir\_ver](#definir_ver)
       - [env\_version](#versión_env)
       - [python\_setup](#configuración_python)
@@ -126,7 +129,7 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
   ```
-- Etiquetado con marcadores de posición de año y mes.
+- Etiquetado con marcadores de posición de año y mes
   ```sh
   python tagit.py --tag-format '{YYYY}.{MM}.{patch}'
   ```
@@ -138,7 +141,11 @@ python tagit.py [Optionen]
   ```sh
   python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
+- Actualizar archivos sin crear una etiqueta:
 
+  ```sh
+  python tagit.py -f configure.ac --no-tag
+  ```
 ### Integración de gancho Git
 
 Puedes integrar `Tagit` en tu flujo de trabajo de Git usándolo como un enlace previo al envío. Esto garantiza que los números de versión y las etiquetas se actualicen automáticamente antes de enviar cambios al repositorio remoto.
@@ -189,7 +196,7 @@ Ahora, cada vez que intente realizar cambios, se ejecutará el script Tagit. Si 
 
 ## Esquemas de versiones personalizados
 
-Puede agregar esquemas de control de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
+Puede agregar esquemas de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
 
 ### Ejemplo de archivo de configuración JSON
 
@@ -243,6 +250,16 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
             "VERSION_MAJOR": "VERSION_MAJOR=\"{major}\"",
             "VERSION_MINOR": "VERSION_MINOR=\"{minor}\"",
             "VERSION_PATCH": "VERSION_PATCH=\"{patch}\""
+        }
+    },
+    {
+        "name": "version_colon_format",
+        "_comment": "Updates version numbers in files with the format 'Version: X.X.X'.",
+        "patterns": {
+            "version": "Version:\\s*\\d+(\\.\\d+)+"
+        },
+        "replacements": {
+            "version": "Version: {major}.{minor}.{patch}"
         }
     },
     {
@@ -320,6 +337,7 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
         }
     }
 ]
+
 ```
 
 ### Explicación de cada esquema.
@@ -339,6 +357,15 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
   VERSION = "0.1.0"
   ```
 - **Descripción**: busca líneas que contengan `VERSION = "..."` y reemplaza la versión.
+
+#### versión_dos puntos_formato
+
+- **Propósito**: Actualiza los números de versión en archivos con versión: formato X.X.X.
+- **Ejemplo**:
+  ```txt
+  Version: 0.0.0
+  ``` 
+**Descripción**: busca líneas que comienzan con versión: y contienen un número de versión y las actualiza.
 
 #### definir_ver
 - **Propósito**: Definiciones de versiones en archivos usando macros.
@@ -428,7 +455,7 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
     ...
   end
   ```
-- **Descripción**: Busca `.version` en archivos `.gemspec` y los actualiza.
+- **Descripción**: busca `.version` en archivos `.gemspec` y los actualiza.
 
 ## Explotación florestal
 
