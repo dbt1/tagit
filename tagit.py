@@ -71,7 +71,7 @@ VERSION_SCHEMES = [
             "ver_major": 'define(ver_major, {major})',
             "ver_minor": 'define(ver_minor, {minor})',
             "ver_micro": 'define(ver_micro, {patch})',  # Assuming 'patch' corresponds to 'micro'
-            "ver_patch": 'define(ver_patch, {patch})'  # If both 'ver_micro' and 'ver_patch' exist
+            "ver_patch": 'define(ver_patch, {patch})'   # If both 'ver_micro' and 'ver_patch' exist
         }
     },
     {
@@ -362,7 +362,18 @@ def main():
         default='commits',
         help='Method to determine the patch version: "commits" sets patch to number of commits since last tag, "increment" increases patch by one.'
     )
+    parser.add_argument(
+        '--no-tag',
+        dest='no_tag',
+        action='store_true',
+        help='Update files without creating a new Git tag.'
+    )
     args = parser.parse_args()
+
+    # Check if --no-tag is used without specifying any files
+    if args.no_tag and not args.files:
+        logger.info("Option '--no-tag' specified but no files provided with '-f/--file'. There is nothing to do. Exiting.")
+        sys.exit(0)
 
     # Handle tag_format argument
     tag_format = args.tag_format
@@ -399,6 +410,7 @@ def main():
         logger.error(f"Error initializing the repository: {e}")
         sys.exit(1)
 
+    # Check if the working directory is clean (modified)
     if repo.is_dirty():
         logger.error("The working directory is not clean. Please commit or stash your changes.")
         sys.exit(1)
@@ -438,9 +450,12 @@ def main():
                     sys.exit(1)
             else:
                 logger.info("No files were updated.")
-        # Create the initial tag
-        tag_created = create_git_tag(repo, version, tag_format, major, minor, patch)
-        logger.info(f"Latest tag: {format_tag(tag_format, get_placeholder_values(major, minor, patch))}, commits since tag: 0")
+        if not args.no_tag:
+            # Create the initial tag
+            tag_created = create_git_tag(repo, version, tag_format, major, minor, patch)
+            logger.info(f"Latest tag: {format_tag(tag_format, get_placeholder_values(major, minor, patch))}, commits since tag: 0")
+        else:
+            logger.info("Option '--no-tag' is enabled. No Git tag will be created.")
     else:
         logger.info(f"Latest tag: {full_tag_name}")
         # Count the number of commits since the latest tag
@@ -487,11 +502,14 @@ def main():
             else:
                 logger.info("No files specified with -f/--file. Only a new tag will be created without updating any files.")
 
-            # Create new Git tag
-            tag_created = create_git_tag(repo, version, tag_format, major, minor, new_patch)
+            if not args.no_tag:
+                # Create new Git tag
+                tag_created = create_git_tag(repo, version, tag_format, major, minor, new_patch)
 
-            if not tag_created:
-                logger.warning(f"Tag {format_tag(tag_format, get_placeholder_values(major, minor, new_patch))} already exists. Skipping tag creation.")
+                if not tag_created:
+                    logger.warning(f"Tag {format_tag(tag_format, get_placeholder_values(major, minor, new_patch))} already exists. Skipping tag creation.")
+            else:
+                logger.info("Option '--no-tag' is enabled. No Git tag will be created.")
         else:
             # Exactly on the latest tag
             version = f"{major}.{minor}.{patch}"
@@ -522,8 +540,11 @@ def main():
                     except Exception as e:
                         logger.error(f"Error while committing: {e}")
                         sys.exit(1)
-                    # Optionally, create a new tag if desired
-                    create_git_tag(repo, version, tag_format, major, minor, patch)
+                    if not args.no_tag:
+                        # Optionally, create a new tag if desired
+                        create_git_tag(repo, version, tag_format, major, minor, patch)
+                    else:
+                        logger.info("Option '--no-tag' is enabled. No Git tag will be created.")
                 else:
                     logger.info("No files were updated and the repository is up to date.")
             else:
