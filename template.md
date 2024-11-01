@@ -1,6 +1,6 @@
 # Tagit - Automatisches Git-Tagging und Versionsaktualisierung
 
-Version: 0.2.0
+Version: 0.2.8
 
 ## Inhaltsverzeichnis
 
