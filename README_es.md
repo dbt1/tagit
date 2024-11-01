@@ -88,7 +88,11 @@ chmod +x dateiname.py
 
 ## usar
 
-> **Nota**: Si aún no se ha asignado ninguna etiqueta en el repositorio, se creará una etiqueta automáticamente.
+Si aún no se ha asignado ninguna etiqueta en el repositorio, se creará una etiqueta automáticamente. También puedes configurar la etiqueta inicial tú mismo.
+
+```sh
+python tagit.py --initial-version 1.0.0
+```
 
 Ejecute sin especificar archivos para etiquetar la última versión:
 ```sh

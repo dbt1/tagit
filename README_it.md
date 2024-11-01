@@ -88,7 +88,11 @@ chmod +x dateiname.py
 
 ## utilizzo
 
-> **Nota**: se nel repository non è stato ancora assegnato alcun tag, verrà creato automaticamente un tag.
+Se nel repository non è stato ancora assegnato alcun tag, verrà creato automaticamente un tag. Puoi anche impostare tu stesso il tag iniziale.
+
+```sh
+python tagit.py --initial-version 1.0.0
+```
 
 Esegui senza specificare i file per taggare l'ultima versione:
 ```sh

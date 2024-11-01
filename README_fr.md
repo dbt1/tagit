@@ -88,7 +88,11 @@ chmod +x dateiname.py
 
 ## utiliser
 
-> **Remarque** : Si aucune balise n'a encore été attribuée dans le référentiel, une balise sera créée automatiquement.
+Si aucune balise n'a encore été attribuée dans le référentiel, une balise sera créée automatiquement. Vous pouvez également définir vous-même la balise initiale.
+
+```sh
+python tagit.py --initial-version 1.0.0
+```
 
 Exécuter sans spécifier de fichiers pour marquer la dernière version :
 ```sh
