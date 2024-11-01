@@ -342,7 +342,7 @@ Hier ist ein Beispiel für eine JSON-Konfigurationsdatei, die benutzerdefinierte
 - **Zweck**: Aktualisiert die Version in `configure.ac`-Dateien unter Verwendung des `AC_INIT`-Makros.
 - **Beispiel**:
   ```m4
-  AC_INIT([MyProject], [0.1.0], [support@example.com])
+  AC_INIT([MyProject], [0.2.9], [support@example.com])
   ```
 - **Beschreibung**: Sucht nach dem `AC_INIT`-Makro und aktualisiert die Versionsnummer.
 
