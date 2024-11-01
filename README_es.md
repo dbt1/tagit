@@ -4,7 +4,7 @@
 
 # Tagit: etiquetado automático de Git y actualización de versiones
 
-Versión: 0.2.0
+Versión: 0.2.8
 
 ## Tabla de contenido
 
@@ -13,12 +13,12 @@ Versión: 0.2.0
   - [Características](#características)
   - [Requisitos](#requisitos)
     - [Usar entorno virtual (recomendado)](#usar-entorno-virtual-recomendado)
-    - [Todo el sistema](#todo-el-sistema)
+    - [En todo el sistema](#todo-el-sistema)
   - [Instalación](#instalación)
   - [Uso](#usar)
     - [Ejemplos](#ejemplos)
     - [Integración de Git Hook](#integración-de-gancho-git)
-  - [Esquemas de versiones admitidos](#esquemas-de-versiones-soportados)
+  - [Esquemas de versiones soportados](#esquemas-de-versiones-soportados)
   - [Esquemas de versiones personalizados](#esquemas-de-versiones-personalizados)
     - [Ejemplo de archivo de configuración JSON](#ejemplo-de-archivo-de-configuración-json)
     - [Explicación de cada esquema](#explicación-de-cada-esquema)
@@ -26,7 +26,7 @@ Versión: 0.2.0
       - [versión\_asignación](#asignación_versión)
       - [versión\_dos puntos\_formato](#versión_dos-puntos_formato)
       - [definir\_ver](#definir_ver)
-      - [env\_version](#versión_env)
+      - [entorno\_versión](#versión_env)
       - [python\_setup](#configuración_python)
       - [paquete\_json](#paquete-json)
       - [cpp\_encabezado](#encabezado_cpp)
@@ -182,7 +182,7 @@ Aquí hay una guía para usar el script como gancho previo al envío:
 
 4. Guarde los cambios y cierre el archivo.
 
-Ahora, cada vez que intente realizar cambios, se ejecutará el script Tagit. Si Tagit falla, el envío se cancelará para que pueda asegurarse de que las versiones sigan siendo consistentes.
+Ahora, cada vez que intente realizar cambios, se ejecutará el script Tagit. Si Tagit falla, el envío se cancelará para que pueda garantizar que las versiones sigan siendo consistentes.
 
 
 ## Esquemas de versiones soportados
@@ -346,7 +346,7 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
 - **Propósito**: Actualiza la versión en archivos `configure.ac` usando la macro `AC_INIT`.
 - **Ejemplo**:
   ```m4
-  AC_INIT([MyProject], [0.1.0], [support@example.com])
+  AC_INIT([MyProject], [0.2.9], [support@example.com])
   ```
 - **Descripción**: busca la macro `AC_INIT` y actualiza el número de versión.
 
@@ -455,7 +455,7 @@ A continuación se muestra un archivo de configuración JSON de ejemplo que defi
     ...
   end
   ```
-- **Descripción**: busca `.version` en archivos `.gemspec` y los actualiza.
+- **Descripción**: Busca `.version` en archivos `.gemspec` y los actualiza.
 
 ## Explotación florestal
 

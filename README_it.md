@@ -4,7 +4,7 @@
 
 # Tagit: tagging Git automatico e aggiornamento della versione
 
-Versione: 0.2.0
+Versione: 0.2.8
 
 ## Sommario
 
@@ -43,7 +43,7 @@ Versione: 0.2.0
 ## Caratteristiche
 
 - **Tagging Git automatico**: genera tag Git in base a diversi metodi di determinazione delle patch (numero di commit o incremento).
-- **Aggiornamento versione nei file di progetto**: aggiorna i numeri di versione nei file specificati in base a schemi di versione predefiniti. Supporta vari formati di versione (ad esempio AC_INIT, VERSION = "X.X.X", define(ver_major, X))
+- **Aggiornamento versione nei file di progetto**: aggiorna i numeri di versione nei file specificati in base a schemi di controllo delle versioni predefiniti. Supporta vari formati di versione (ad esempio AC_INIT, VERSION = "X.X.X", define(ver_major, X))
 - **Schemi di controllo delle versioni personalizzati**: supporta schemi di controllo delle versioni aggiuntivi tramite un file di configurazione dello schema `json`.
 - **Formato tag flessibile**: consente di definire formati di tag con caratteri jolly personalizzati per le versioni principali, secondarie e patch tramite formati con caratteri jolly personalizzabili come {AAAA}, {MM}, {DD}, {major}, {minor}, e {patch}, anche per data e ora: utilizzare {AAAA}, {MM}, {GG}, {hh}, {mm}, {ss} per integrare automaticamente la data e l'ora correnti.
 - **Versione iniziale e modalità versione**: consente di impostare una versione iniziale.
@@ -346,7 +346,7 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
 - **Scopo**: aggiorna la versione nei file `configure.ac` utilizzando la macro `AC_INIT`.
 - **Esempio**:
   ```m4
-  AC_INIT([MyProject], [0.1.0], [support@example.com])
+  AC_INIT([MyProject], [0.2.9], [support@example.com])
   ```
 - **Descrizione**: cerca la macro `AC_INIT` e aggiorna il numero di versione.
 
@@ -375,7 +375,7 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
   define(ver_minor, 1)
   define(ver_micro, 0)
   ```
-- **Descrizione**: sostituisce le versioni principali, secondarie e patch nelle macro.
+- **Descrizione**: Sostituisce le versioni principali, secondarie e patch nelle macro.
 
 #### env_version
 - **Scopo**: imposta i numeri di versione per le variabili di ambiente.

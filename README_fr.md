@@ -4,7 +4,7 @@
 
 # Tagit - Balisage Git automatique et mise à jour de version
 
-Version : 0.2.0
+Version : 0.2.8
 
 ## Table des matières
 
@@ -182,7 +182,7 @@ Voici un guide pour utiliser le script comme hook de pré-push :
 
 4. Enregistrez les modifications et fermez le fichier.
 
-Désormais, chaque fois que vous essayez d'appliquer des modifications, le script Tagit sera exécuté. Si Tagit échoue, le push sera annulé afin que vous puissiez garantir que les versions restent cohérentes.
+Désormais, chaque fois que vous essayez d'appliquer des modifications, le script Tagit s'exécutera. Si Tagit échoue, le push sera annulé afin que vous puissiez garantir que les versions restent cohérentes.
 
 
 ## Schémas de version pris en charge
@@ -346,7 +346,7 @@ Voici un exemple de fichier de configuration JSON qui définit des schémas de g
 - **Objectif** : Met à jour la version dans les fichiers `configure.ac` à l'aide de la macro `AC_INIT`.
 - **Exemple**:
   ```m4
-  AC_INIT([MyProject], [0.1.0], [support@example.com])
+  AC_INIT([MyProject], [0.2.9], [support@example.com])
   ```
 - **Description** : recherche la macro `AC_INIT` et met à jour le numéro de version.
 

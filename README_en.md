@@ -4,7 +4,7 @@
 
 # Tagit - Automatic Git tagging and version updating
 
-Version: 0.2.0
+Version: 0.2.8
 
 ## Table of contents
 
@@ -182,7 +182,7 @@ Here is a guide to use the script as a pre-push hook:
 
 4. Save the changes and close the file.
 
-Now every time you try to push changes, the Tagit script will be executed. If Tagit fails, the push will be canceled so you can ensure versions remain consistent.
+Now every time you try to push changes, the Tagit script will run. If Tagit fails, the push will be canceled so you can ensure versions remain consistent.
 
 
 ## Supported versioning schemes
@@ -346,7 +346,7 @@ Here is an example JSON configuration file that defines custom versioning scheme
 - **Purpose**: Updates the version in `configure.ac` files using the `AC_INIT` macro.
 - **Example**:
   ```m4
-  AC_INIT([MyProject], [0.1.0], [support@example.com])
+  AC_INIT([MyProject], [0.2.9], [support@example.com])
   ```
 - **Description**: Searches for the `AC_INIT` macro and updates the version number.
 
