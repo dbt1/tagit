@@ -171,7 +171,6 @@ Ecco una guida per utilizzare lo script come hook pre-push:
    #!/bin/sh
    # Pre-Push Hook to run Tagit before pushing
    
-   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
    python3 path/to/tagit.py -f configure.ac -f version.txt || {
        echo "Tagit failed. Push aborted."
        exit 1
@@ -443,7 +442,7 @@ Ecco un esempio di file di configurazione JSON che definisce schemi di controllo
   ```markdown
   [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/username/repository)
   ```
-- **Descrizione**: sostituisce il numero di versione nel collegamento del badge.
+- **Descrizione**: Sostituisce il numero di versione nel collegamento del badge.
 
 #### rubino gemspec
 - **Scopo**: aggiorna il numero di versione nei file `.gemspec` per Ruby.

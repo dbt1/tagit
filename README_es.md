@@ -171,7 +171,6 @@ Aquí hay una guía para usar el script como gancho previo al envío:
    #!/bin/sh
    # Pre-Push Hook to run Tagit before pushing
    
-   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
    python3 path/to/tagit.py -f configure.ac -f version.txt || {
        echo "Tagit failed. Push aborted."
        exit 1
@@ -196,7 +195,7 @@ Ahora, cada vez que intente realizar cambios, se ejecutará el script Tagit. Si 
 
 ## Esquemas de versiones personalizados
 
-Puede agregar esquemas de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
+Puede agregar esquemas de control de versiones adicionales especificando un archivo de configuración JSON con la opción `--scheme-file`. Esto le permite definir patrones personalizados y cadenas de reemplazo para actualizaciones de versión en cualquier archivo.
 
 ### Ejemplo de archivo de configuración JSON
 

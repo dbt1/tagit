@@ -171,7 +171,6 @@ Voici un guide pour utiliser le script comme hook de pré-push :
    #!/bin/sh
    # Pre-Push Hook to run Tagit before pushing
    
-   # Ausführen von Tagit, um automatisch Versionen zu aktualisieren
    python3 path/to/tagit.py -f configure.ac -f version.txt || {
        echo "Tagit failed. Push aborted."
        exit 1
@@ -182,7 +181,7 @@ Voici un guide pour utiliser le script comme hook de pré-push :
 
 4. Enregistrez les modifications et fermez le fichier.
 
-Désormais, chaque fois que vous essayez d'appliquer des modifications, le script Tagit s'exécutera. Si Tagit échoue, le push sera annulé afin que vous puissiez garantir que les versions restent cohérentes.
+Désormais, chaque fois que vous essayez d'appliquer des modifications, le script Tagit sera exécuté. Si Tagit échoue, le push sera annulé afin que vous puissiez garantir que les versions restent cohérentes.
 
 
 ## Schémas de version pris en charge
