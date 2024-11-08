@@ -488,7 +488,7 @@ def main():
 
                 if any_update:
                     # Commit changes
-                    commit_message = f"Version {version} - Synchronized with the latest tag."
+                    commit_message = f"Version {version} - Synchronized '{file_path}' with latest tag and patch level."
                     try:
                         repo.index.add(args.files)
                         repo.index.commit(commit_message)
