@@ -34,7 +34,7 @@ jobs:
 
     - name: Translate README
       run: |
-        python translate-md.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -c translate-md-config.json -s de
+        python translate-md.py --template-md template.md --output-dir . --prefix README_ --main-doc README.md -s de
 
     - name: Commit and push translated README
       run: |
