@@ -138,9 +138,12 @@ python tagit.py [Optionen]
   python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
   ```
 - Dateien aktualisieren ohne Tag zu erstellen:
-
   ```sh
   python tagit.py -f configure.ac --no-tag
+  ```
+- Tagging mit Versionierungsschemata aus einer `JSON`-Schema-Konfigurationsdatei mit anpassen der Versionsangabe in template.md:
+  ```sh
+  python tagit.py -f template.md --scheme-file tagit-config.json
   ```
 ### Git Hook Integration
 
