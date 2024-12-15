@@ -47,6 +47,15 @@
         }
     },
     {
+        "name": "version_colon_format_4part",
+        "patterns": {
+            "version": "Version:\\s*\\d+(\\.\\d+){3}"
+        },
+        "replacements": {
+            "version": "Version: {major}.{minor}.{micro}.{patch}"
+        }
+    },
+    {
         "name": "version_colon_format",
         "patterns": {
             "version": "Version:\\s*\\d+(\\.\\d+)+"
