@@ -1,4 +1,3 @@
- 
 [
     {
         "name": "ac_init",
@@ -62,6 +61,24 @@
         },
         "replacements": {
             "version": "Version: {major}.{minor}.{patch}"
+        }
+    },
+    {
+        "name": "app_version",
+        "patterns": {
+            "app_version": "\\$APP_VERSION\\s*=\\s*'\\d+(\\.\\d+)+"
+        },
+        "replacements": {
+            "app_version": "\\$APP_VERSION = '{major}.{minor}.{patch}'"
+        }
+    },
+    {
+        "name": "version_dash_format",
+        "patterns": {
+            "version_dash": "version-\\d+(\\.\\d+)+"
+        },
+        "replacements": {
+            "version_dash": "version-{major}.{minor}.{patch}"
         }
     }
 ]
