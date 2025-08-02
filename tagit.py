@@ -1,23 +1,10 @@
 #!/usr/bin/env python3
 """
-Automatic Git Tagging and Version Update with custom placeholders and additional parameters for major, micro, and patch,
-with fallback logic if the primary scheme does not match the file format as expected.
+Tagit 2.0 - Automated Git Tagging and Version Management Tool
+Optimized single-file version with enhanced security and modularity
 
-This script automates tagging in Git and updates version numbers in various files based on defined versioning schemes.
-It supports custom placeholders and allows overriding version parts. If the format in the specified file does not match
-the expected scheme, the script attempts to find a fallback scheme. If a fallback is found, it logs an info message and
-uses it. Otherwise, it warns that the format does not match.
-
-Key Features:
-- Determines version from latest Git tag or initial-version.
-- Supports {micro} when using four-part versions.
-- Overrides with --major, --micro, --patch.
-- Attempts to update files based on versioning schemes.
-- If the primary scheme does not match the file content as expected, tries to find an alternative scheme.
-- Logs warnings and infos accordingly.
-
-Date/time placeholders: {YYYY}, {YY}, {MM}, {DD}, {hh}, {mm}, {ss}
-Version placeholders: {major}, {minor}, {micro}, {patch}
+This is a standalone version that includes all improvements from the modular architecture
+in a single file for easy deployment.
 """
 
 import subprocess
@@ -28,8 +15,13 @@ import argparse
 import logging
 import json
 from datetime import datetime
-from git import Repo, GitCommandError
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Any
+from functools import lru_cache
+import tempfile
+import shutil
 
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -37,7 +29,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION_SCHEMES = [
+# Version
+VERSION_MAJOR="0"
+VERSION_MINOR="3"
+VERSION_PATCH="0"
+__version__ = f"{VERSION_MAJOR}.{VERSION_MINOR}.{VERSION_PATCH}"
+__author__ = "Thilo Graf"
+
+# Default versioning schemes
+DEFAULT_VERSION_SCHEMES = [
     {
         "name": "ac_init",
         "patterns": {
@@ -86,457 +86,644 @@ VERSION_SCHEMES = [
     }
 ]
 
-def get_placeholder_values(major, minor, patch, micro='0'):
-    now = datetime.now()
-    placeholders = {
-        'YYYY': now.strftime('%Y'),
-        'YY': now.strftime('%y'),
-        'MM': now.strftime('%m'),
-        'DD': now.strftime('%d'),
-        'hh': now.strftime('%H'),
-        'mm': now.strftime('%M'),
-        'ss': now.strftime('%S'),
-        'major': major,
-        'minor': minor,
-        'micro': micro,
-        'patch': patch,
+
+class TagitError(Exception):
+    """Base exception for Tagit"""
+    pass
+
+
+class GitOperationError(TagitError):
+    """Git operation failed"""
+    pass
+
+
+class ValidationError(TagitError):
+    """Validation failed"""
+    pass
+
+
+class SecurityError(TagitError):
+    """Security violation detected"""
+    pass
+
+
+class ConfigError(TagitError):
+    """Configuration error"""
+    pass
+
+
+class FileOperationError(TagitError):
+    """File operation failed"""
+    pass
+
+
+class SecurityValidator:
+    """Validates inputs for security concerns"""
+    
+    VERSION_PATTERN = re.compile(r'^[0-9A-Za-z.\-+]+$')
+    ALLOWED_PLACEHOLDERS = {
+        'major', 'minor', 'patch', 'micro',
+        'YYYY', 'YY', 'MM', 'DD', 'hh', 'mm', 'ss'
     }
-    return placeholders
+    
+    def validate_version_string(self, version: str) -> str:
+        """Validate version string format"""
+        if not version:
+            raise ValidationError("Version string cannot be empty")
+        
+        if not self.VERSION_PATTERN.match(version):
+            raise ValidationError(
+                f"Invalid version format: {version}. "
+                "Only alphanumeric characters, dots, dashes, and plus signs allowed."
+            )
+        
+        # Additional semantic version validation
+        base_version = version.split('-')[0].split('+')[0]
+        parts = base_version.split('.')
+        
+        if len(parts) < 3:
+            raise ValidationError(
+                f"Version must have at least major.minor.patch: {version}"
+            )
+        
+        # Validate numeric parts
+        for i, part in enumerate(parts[:4]):
+            if not part.isdigit():
+                raise ValidationError(
+                    f"Version component must be numeric: {part}"
+                )
+        
+        return version
+    
+    def validate_tag_format(self, tag_format: str) -> str:
+        """Validate tag format string"""
+        if not tag_format:
+            raise ValidationError("Tag format cannot be empty")
+        
+        # Check for potentially dangerous patterns
+        dangerous_patterns = [
+            r'\$\(',  # Command substitution
+            r'`',     # Backticks
+            r'&&',    # Command chaining
+            r'\|\|',  # Command chaining
+            r';',     # Command separator
+            r'>',     # Redirection
+            r'<',     # Redirection
+        ]
+        
+        for pattern in dangerous_patterns:
+            if re.search(pattern, tag_format):
+                raise SecurityError(
+                    f"Tag format contains potentially dangerous pattern: {pattern}"
+                )
+        
+        # Validate placeholders
+        placeholders = re.findall(r'\{(\w+)\}', tag_format)
+        for placeholder in placeholders:
+            if placeholder not in self.ALLOWED_PLACEHOLDERS:
+                raise ValidationError(
+                    f"Unknown placeholder: {{{placeholder}}}. "
+                    f"Allowed: {', '.join(sorted(self.ALLOWED_PLACEHOLDERS))}"
+                )
+        
+        return tag_format
+    
+    def validate_safe_path(self, base_dir: str, user_path: str) -> str:
+        """Validate path is within base directory (prevent traversal)"""
+        base = Path(base_dir).resolve()
+        full_path = (base / user_path).resolve()
+        
+        try:
+            full_path.relative_to(base)
+        except ValueError:
+            raise SecurityError(
+                f"Path traversal detected: {user_path} is outside repository"
+            )
+        
+        return str(full_path)
+    
+    def validate_numeric(self, value: str, field_name: str) -> str:
+        """Validate numeric string"""
+        if not value.isdigit():
+            raise ValidationError(
+                f"{field_name} must be numeric, got: {value}"
+            )
+        return value
 
-def format_tag(tag_format, placeholders):
-    try:
-        return tag_format.format(**placeholders)
-    except KeyError as e:
-        missing_key = e.args[0]
-        logger.error(f"Placeholder {{{missing_key}}} is not defined. Please provide a valid placeholder.")
-        sys.exit(1)
 
-def tag_format_uses_micro(tag_format):
-    return '{micro}' in tag_format
+class GitHandler:
+    """Secure Git operations handler"""
+    
+    def __init__(self, repo_path: Path):
+        self.repo_path = repo_path
+        self._validate_git_repo()
+        
+    def _validate_git_repo(self) -> None:
+        """Validate that path is a Git repository"""
+        git_dir = self.repo_path / '.git'
+        if not git_dir.exists():
+            raise GitOperationError(f"Not a Git repository: {self.repo_path}")
+    
+    def _run_git_command(self, args: List[str], **kwargs) -> subprocess.CompletedProcess:
+        """Run Git command securely without shell=True"""
+        cmd = ['git'] + args
+        defaults = {
+            'cwd': self.repo_path,
+            'capture_output': True,
+            'text': True,
+            'check': True,
+            'timeout': 60
+        }
+        defaults.update(kwargs)
+        
+        try:
+            logger.debug(f"Running Git command: {' '.join(cmd)}")
+            return subprocess.run(cmd, **defaults)
+        except subprocess.TimeoutExpired:
+            raise GitOperationError("Git operation timed out")
+        except subprocess.CalledProcessError as e:
+            raise GitOperationError(f"Git command failed: {e.stderr}")
+    
+    def is_dirty(self) -> bool:
+        """Check if working directory has uncommitted changes"""
+        result = self._run_git_command(['status', '--porcelain'])
+        return bool(result.stdout.strip())
+    
+    @lru_cache(maxsize=128)
+    def get_latest_tag(self) -> Dict[str, Optional[str]]:
+        """Get latest tag and parse version components"""
+        try:
+            result = self._run_git_command(['describe', '--tags', '--abbrev=0'])
+            tag = result.stdout.strip()
+            
+            # Parse version from tag
+            version_str = tag[1:] if tag.startswith('v') else tag
 
-def get_latest_tag(repo):
-    try:
-        full_tag_name = repo.git.describe('--tags', '--abbrev=0').strip()
-    except GitCommandError:
-        return None, None, None, None, None
+            # Remove pre-release and build metadata for parsing
+            base_version = version_str.split('-')[0].split('+')[0]
+            parts = base_version.split('.')
+            
+            return {
+                'tag': tag,
+                'major': parts[0] if len(parts) > 0 else '0',
+                'minor': parts[1] if len(parts) > 1 else '0',
+                'patch': parts[2] if len(parts) > 2 else '0',
+                'micro': parts[3] if len(parts) > 3 else None
+            }
+        except GitOperationError:
+            return {'tag': None, 'major': '0', 'minor': '0', 'patch': '0', 'micro': None}
+    
+    def get_commits_since_tag(self, tag: str) -> int:
+        """Get number of commits since specified tag"""
+        try:
+            result = self._run_git_command(['rev-list', f'{tag}..HEAD', '--count'])
+            return int(result.stdout.strip())
+        except (GitOperationError, ValueError):
+            return 0
+    
+    def tag_exists(self, tag_name: str) -> bool:
+        """Check if a tag already exists"""
+        try:
+            # Use check=False to avoid exception on non-zero exit code
+            result = self._run_git_command(['rev-parse', f'refs/tags/{tag_name}'], check=False)
+            return result.returncode == 0
+        except:
+            return False
 
-    version_str = full_tag_name
-    if version_str.lower().startswith('v'):
-        version_str = version_str[1:]
-
-    parts = version_str.split('.')
-    if len(parts) == 1:
-        major = parts[0]
-        minor = '0'
-        patch = '0'
-    elif len(parts) == 2:
-        major, minor = parts
-        patch = '0'
-    else:
-        major, minor, patch = parts[0], parts[1], parts[2]
-
-    if not (major.isdigit() and minor.isdigit() and patch.isdigit()):
-        logger.error(f"The version in tag '{version_str}' is not numeric.")
-        return None, None, None, None, None
-
-    return full_tag_name, version_str, major, minor, patch
-
-def get_commits_since_tag(repo, full_tag_name):
-    try:
-        commits_since_tag = repo.git.rev_list(f"{full_tag_name}..HEAD", '--count')
-        return int(commits_since_tag.strip())
-    except GitCommandError:
-        return 0
-
-def increment_patch(patch_str, increment):
-    if patch_str.isdigit():
-        return str(int(patch_str) + increment)
-    else:
-        logger.error(f"Patch part '{patch_str}' is not numeric.")
-        sys.exit(1)
-
-def apply_scheme_to_file(content, scheme, ver_major, ver_minor, ver_patch, ver_micro='0'):
-    new_content = content
-    changed = False
-    for key, pattern in scheme["patterns"].items():
-        replacement = scheme["replacements"][key].format(
-            major=ver_major,
-            minor=ver_minor,
-            micro=ver_micro,
-            patch=ver_patch
-        )
-        updated_content = re.sub(pattern, replacement, new_content)
-        if updated_content != new_content:
-            changed = True
-        new_content = updated_content
-    return new_content, changed
-
-def scheme_supports_micro(scheme):
-    """
-    Check if a scheme can handle micro.
-    A rough heuristic: if in the 'version' replacement (if it exists) {micro} is used, assume it supports micro.
-    Or if at least one replacement line uses {micro}, we can assume it supports micro.
-    """
-    for repl in scheme["replacements"].values():
-        if '{micro}' in repl:
-            return True
-    return False
-
-def scheme_has_4part_pattern(scheme):
-    """
-    Check if scheme pattern for "version" can handle 4 parts.
-    A simple heuristic: the pattern for "version" should match something like four numeric groups.
-    For example "Version:\\s*\\d+(\\.\\d+){3}" indicates 4 numeric parts.
-    This is heuristic; you can adapt as needed.
-    """
-    if "version" in scheme["patterns"]:
-        pattern = scheme["patterns"]["version"]
-        # Heuristic: if pattern has (\\.\\d+){3}, we assume 4 parts
-        if re.search(r'\(\\.\\d+\)\{3}', pattern):
-            return True
-    # If no explicit version pattern, we cannot confirm
-    return False
-
-def filter_schemes_for_micro(schemes, micro_used):
-    """
-    If micro_used, prefer schemes that support micro and have a 4-part pattern.
-    Otherwise, return as is.
-    """
-    if not micro_used:
-        return schemes  # no special filtering needed
-
-    # Filter schemes that support micro and ideally have a 4-part pattern
-    micro_schemes = []
-    for s in schemes:
-        if scheme_supports_micro(s):
-            # If it supports micro, good. If it also has 4part pattern even better.
-            # prioritize those with 4-part pattern
-            micro_schemes.append((scheme_has_4part_pattern(s), s))
-    # Sort by whether they have a 4-part pattern first (True first)
-    micro_schemes.sort(key=lambda x: x[0], reverse=True)
-
-    return [s for (_, s) in micro_schemes] if micro_schemes else schemes
-
-def find_all_matching_schemes(content):
-    matched_schemes = []
-    for scheme in VERSION_SCHEMES:
-        for pattern in scheme["patterns"].values():
-            if re.search(pattern, content):
-                matched_schemes.append(scheme)
-                break
-    return matched_schemes
-
-def find_primary_scheme_for_file(file_path):
-    """
-    Find one scheme that matches the file. If multiple match, return the first.
-    """
-    try:
-        with open(file_path, 'r') as file:
-            content = file.read()
-    except FileNotFoundError:
-        logger.error(f"{file_path} not found.")
-        return None
-    matched = find_all_matching_schemes(content)
-    if matched:
-        return matched[0]
-    return None
-
-def try_schemes_on_file(file_path, schemes, major, minor, patch, micro):
-    """
-    Try each scheme in order until one updates the file. Return True if updated, False otherwise.
-    """
-    try:
-        with open(file_path, 'r') as file:
-            content = file.read()
-    except FileNotFoundError:
-        logger.error(f"{file_path} not found. Operation aborted.")
-        sys.exit(1)
-
-    for idx, scheme in enumerate(schemes):
-        new_content, changed = apply_scheme_to_file(content, scheme, major, minor, patch, micro)
-        if changed:
-            with open(file_path, 'w') as file:
-                file.write(new_content)
-
-            version_pattern = scheme["patterns"].get("version")
-            if version_pattern:
-                match = re.search(version_pattern, new_content)
-                if match:
-                    matched_line = match.group(0)
-                    logger.info(f"{file_path} was updated to {matched_line}. Using scheme '{scheme['name']}'.")
-                else:
-                    logger.warning(f"{file_path}: Version updated, but no 'version' line found after update. Scheme: '{scheme['name']}'")
-            else:
-                logger.info(f"{file_path} updated to version {major}.{minor}.{patch} using scheme '{scheme['name']}' (no explicit version pattern).")
-
-            if idx > 0:
-                # Means the first tried scheme didn't match well, we used a fallback
-                logger.info(f"Primary scheme did not fit the file {file_path}'s format. Falling back to scheme '{scheme['name']}' as a workaround.")
-            return True
-    return False
-
-def update_version_in_file(file_path, ver_major, ver_minor, ver_patch, ver_micro='0', primary_scheme=None, micro_used=False):
-    """
-    Updates the file. If primary_scheme is given, try it first. If it fails, find alternatives.
-    If micro_used is True, prefer schemes that support micro and have a 4-part pattern.
-    If no suitable scheme is found, log a warning.
-    """
-    try:
-        with open(file_path, 'r') as file:
-            content = file.read()
-    except FileNotFoundError:
-        logger.error(f"{file_path} not found. Operation aborted.")
-        sys.exit(1)
-
-    if primary_scheme:
-        # Try primary scheme
-        new_content, changed = apply_scheme_to_file(content, primary_scheme, ver_major, ver_minor, ver_patch, ver_micro)
-        if changed:
-            with open(file_path, 'w') as file:
-                file.write(new_content)
-
-            version_pattern = primary_scheme["patterns"].get("version")
-            if version_pattern:
-                match = re.search(version_pattern, new_content)
-                if match:
-                    matched_line = match.group(0)
-                    logger.info(f"{file_path} was updated to {matched_line}. Using scheme '{primary_scheme['name']}'.")
-                else:
-                    logger.warning(f"{file_path}: Version updated using primary scheme '{primary_scheme['name']}', but no 'version' line found.")
-            else:
-                logger.info(f"{file_path} updated to version {ver_major}.{ver_minor}.{ver_patch} using scheme '{primary_scheme['name']}'.")
-            return True
+    def create_tag(self, tag_name: str, message: Optional[str] = None) -> None:
+        """Create annotated Git tag"""
+        # Check if tag already exists
+        if self.tag_exists(tag_name):
+            logger.info(f"Tag {tag_name} already exists, skipping tag creation")
+            return
+        
+        # Create new tag
+        args = ['tag', '-a', tag_name]
+        if message:
+            args.extend(['-m', message])
         else:
-            # Primary scheme did not apply changes. Try fallback.
-            logger.warning(f"Primary scheme '{primary_scheme['name']}' did not change {file_path}. Trying fallback schemes...")
-    # If we reach here, we need fallback schemes
-    all_matches = find_all_matching_schemes(content)
-    if primary_scheme in all_matches:
-        all_matches.remove(primary_scheme)
-    if not all_matches:
-        logger.warning(f"No fallback schemes match {file_path}'s format. Cannot update.")
+            args.extend(['-m', f'Release {tag_name}'])
+        
+        self._run_git_command(args)
+        logger.info(f"Created tag: {tag_name}")
+    
+    def commit_files(self, files: List[str], message: str) -> None:
+        """Stage and commit specified files"""
+        # Stage files
+        self._run_git_command(['add'] + files)
+        
+        # Commit
+        self._run_git_command(['commit', '-m', message])
+        logger.info(f"Committed {len(files)} file(s): {message}")
+
+
+class VersionManager:
+    """Manages version parsing, validation, and formatting"""
+    
+    SEMVER_PATTERN = re.compile(
+        r'^(\d+)\.(\d+)\.(\d+)'
+        r'(?:\.(\d+))?'  # Optional micro version
+        r'(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?'  # Pre-release
+        r'(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$'  # Build metadata
+    )
+    
+    def parse_version(self, version_str: str) -> Tuple[str, ...]:
+        """Parse version string into components"""
+        match = self.SEMVER_PATTERN.match(version_str)
+        if not match:
+            raise ValidationError(f"Invalid version format: {version_str}")
+        
+        groups = match.groups()
+        # Return major, minor, patch, and optionally micro
+        result = [groups[0], groups[1], groups[2]]
+        if groups[3] is not None:
+            result.append(groups[3])
+        
+        return tuple(result)
+    
+    def format_tag(self, tag_format: str, placeholders: Dict[str, str]) -> str:
+        """Format tag name with placeholders"""
+        try:
+            return tag_format.format(**placeholders)
+        except KeyError as e:
+            raise ValidationError(f"Unknown placeholder in tag format: {{{e.args[0]}}}")
+
+
+class FileUpdater:
+    """Handles file updates based on versioning schemes"""
+    
+    def __init__(self):
+        self.schemes = []
+    
+    def find_matching_scheme(self, content: str, schemes: List[Dict]) -> Optional[Dict]:
+        """Find first scheme that matches file content"""
+        for scheme in schemes:
+            for pattern in scheme["patterns"].values():
+                if re.search(pattern, content):
+                    return scheme
+        return None
+    
+    def apply_scheme(
+        self, 
+        content: str, 
+        scheme: Dict,
+        major: str,
+        minor: str,
+        patch: str,
+        micro: str = '0'
+    ) -> tuple[str, bool]:
+        """Apply versioning scheme to content"""
+        new_content = content
+        changed = False
+        
+        replacements = {
+            'major': major,
+            'minor': minor,
+            'patch': patch,
+            'micro': micro
+        }
+        
+        for key, pattern in scheme["patterns"].items():
+            if key in scheme["replacements"]:
+                replacement = scheme["replacements"][key].format(**replacements)
+                updated = re.sub(pattern, replacement, new_content)
+                if updated != new_content:
+                    changed = True
+                    new_content = updated
+        
+        return new_content, changed
+    
+    def update_file(
+        self,
+        file_path: str,
+        major: str,
+        minor: str,
+        patch: str,
+        micro: str,
+        schemes: List[Dict]
+    ) -> bool:
+        """Update version in file using appropriate scheme"""
+        path = Path(file_path)
+        
+        if not path.exists():
+            raise FileOperationError(f"File not found: {file_path}")
+        
+        # Read file content
+        try:
+            content = path.read_text(encoding='utf-8')
+        except Exception as e:
+            raise FileOperationError(f"Failed to read {file_path}: {e}")
+        
+        # Find matching scheme
+        all_schemes = schemes + DEFAULT_VERSION_SCHEMES
+        scheme = self.find_matching_scheme(content, all_schemes)
+        
+        if not scheme:
+            logger.warning(f"No matching scheme found for {file_path}")
+            return False
+        
+        # Apply scheme
+        new_content, changed = self.apply_scheme(
+            content, scheme, major, minor, patch, micro
+        )
+        
+        if changed:
+            try:
+                # Create backup
+                backup_path = path.with_suffix(path.suffix + '.tagit-backup')
+                shutil.copy2(file_path, backup_path)
+                
+                # Write updated content
+                path.write_text(new_content, encoding='utf-8')
+                
+                # Remove backup on success
+                backup_path.unlink()
+                
+                logger.info(f"Updated {file_path} using scheme '{scheme['name']}'")
+                return True
+            except Exception as e:
+                # Restore from backup if exists
+                if backup_path.exists():
+                    shutil.copy2(backup_path, file_path)
+                    backup_path.unlink()
+                raise FileOperationError(f"Failed to write {file_path}: {e}")
+        
         return False
 
-    # If micro is used, filter schemes that support micro
-    fallback_schemes = filter_schemes_for_micro(all_matches, micro_used=micro_used)
 
-    updated = try_schemes_on_file(file_path, fallback_schemes, ver_major, ver_minor, ver_patch, ver_micro)
-    if not updated:
-        # No fallback worked
-        logger.warning(f"No suitable fallback scheme could update {file_path} to the new version format.")
-    return updated
+class ConfigManager:
+    """Manages configuration and versioning schemes"""
+    
+    def __init__(self):
+        self.schemes: List[Dict[str, Any]] = []
+        
+    def load_scheme_file(self, file_path: str) -> None:
+        """Load additional versioning schemes from JSON file"""
+        path = Path(file_path)
+        
+        if not path.exists():
+            raise ConfigError(f"Scheme file not found: {file_path}")
+        
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                schemes = json.load(f)
+            
+            if not isinstance(schemes, list):
+                raise ConfigError("Scheme file must contain a list of schemes")
+            
+            # Validate each scheme
+            for scheme in schemes:
+                self._validate_scheme(scheme)
+            
+            self.schemes.extend(schemes)
+            logger.info(f"Loaded {len(schemes)} schemes from {file_path}")
+            
+        except json.JSONDecodeError as e:
+            raise ConfigError(f"Invalid JSON in scheme file: {e}")
+        except Exception as e:
+            raise ConfigError(f"Failed to load scheme file: {e}")
+    
+    def _validate_scheme(self, scheme: Dict[str, Any]) -> None:
+        """Validate scheme structure"""
+        required_fields = ['name', 'patterns', 'replacements']
+        
+        for field in required_fields:
+            if field not in scheme:
+                raise ValidationError(f"Scheme missing required field: {field}")
+        
+        if not isinstance(scheme['patterns'], dict):
+            raise ValidationError("Scheme 'patterns' must be a dictionary")
+        
+        if not isinstance(scheme['replacements'], dict):
+            raise ValidationError("Scheme 'replacements' must be a dictionary")
+    
+    def get_schemes(self) -> List[Dict[str, Any]]:
+        """Get all loaded schemes"""
+        return self.schemes
 
-def create_git_tag(repo, version, tag_format, major, minor, patch, micro='0'):
-    placeholders = get_placeholder_values(major, minor, patch, micro=micro)
-    tag_name = format_tag(tag_format, placeholders)
-
-    if tag_name in [str(tag) for tag in repo.tags]:
-        logger.info(f"Tag {tag_name} already exists. No new tag will be created.")
-        return False
-    try:
-        repo.create_tag(tag_name)
-        logger.info(f"New Git tag created: {tag_name}")
-        return True
-    except GitCommandError as e:
-        logger.error(f"Error while creating the tag: {e}")
-        sys.exit(1)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Automated tagging and version updating with custom placeholders and parameters for major, micro, and patch.",
-        epilog="You can override major, micro, and patch by specifying --major, --micro, and --patch.\n"
-               "If the tag format includes {micro} but the old tag is only three-part, the old patch is interpreted as micro and patch=0.\n"
-               "Date/time placeholders: {YYYY}, {YY}, {MM}, {DD}, {hh}, {mm}, {ss}\n"
-               "Example:\n"
-               "  python tagit.py --tag-format '{major}.{minor}.{micro}.{patch}' -f /path/to/file",
+        description=f"Tagit {__version__} - Automated Git tagging and version management tool",
+        epilog="Examples:\n"
+               "  tagit -f package.json -f version.txt\n"
+               "  tagit --dry-run -f configure.ac\n"
+               "  tagit --tag-format 'v{major}.{minor}.{patch}-{YYYY}{MM}{DD}'",
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
+    
     parser.add_argument(
         '-f', '--file',
         dest='files',
         action='append',
-        help='File to be updated (e.g., configure.ac). Can be used multiple times.'
+        help='File to be updated (can be used multiple times)'
     )
     parser.add_argument(
         '--scheme-file',
-        dest='scheme_file',
-        help='Path to a JSON file containing additional versioning schemes.'
+        help='Path to JSON file containing additional versioning schemes'
     )
     parser.add_argument(
         '--tag-format',
-        dest='tag_format',
         default='v{major}.{minor}.{patch}',
-        help='Format for the Git tag. Use {major}, {minor}, {micro}, {patch}, and date/time placeholders.'
+        help='Format for Git tag (default: v{major}.{minor}.{patch})'
     )
     parser.add_argument(
         '--initial-version',
-        dest='initial_version',
         default='0.1.0',
-        help='Initial version to use when no tags are present (default: "0.1.0").'
+        help='Initial version when no tags exist (default: 0.1.0)'
     )
     parser.add_argument(
         '--version-mode',
-        dest='version_mode',
         choices=['commits', 'increment'],
         default='commits',
-        help='Method to determine the patch version: "commits" sets patch to the number of commits since last tag, "increment" increases patch by one.'
+        help='Method to determine patch version'
     )
     parser.add_argument(
         '--no-tag',
-        dest='no_tag',
         action='store_true',
-        help='Update files without creating a new Git tag.'
+        help='Update files without creating a Git tag'
     )
     parser.add_argument(
-        '--major',
-        dest='override_major',
-        help='Override the major version number with a numeric value.'
+        '--dry-run',
+        action='store_true',
+        help='Show what would be done without making changes'
+    )
+    parser.add_argument('--major', help='Override major version number')
+    parser.add_argument('--minor', help='Override minor version number') 
+    parser.add_argument('--micro', help='Override micro version number')
+    parser.add_argument('--patch', help='Override patch version number')
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Enable verbose output'
     )
     parser.add_argument(
-        '--micro',
-        dest='override_micro',
-        default=None,
-        help='Override the micro version number with a numeric value. If not specified and {micro} is used, micro is derived from the old patch if the old tag was three-part.'
+        '--version',
+        action='version',
+        version=f'%(prog)s {__version__}'
     )
-    parser.add_argument(
-        '--patch',
-        dest='override_patch',
-        help='Override the patch version number with a numeric value.'
-    )
+    
     args = parser.parse_args()
-
+    
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    
     if args.no_tag and not args.files:
-        logger.info("Option '--no-tag' specified but no files provided with '-f/--file'. There is nothing to do. Exiting.")
-        sys.exit(0)
-
-    tag_format = args.tag_format
-    micro_used = tag_format_uses_micro(tag_format)
-
-    initial_version = args.initial_version
-    parts = initial_version.split('.')
-    while len(parts) < 3:
-        parts.append('0')
-    initial_major, initial_minor, initial_patch = parts[0], parts[1], parts[2]
-
-    if not (initial_major.isdigit() and initial_minor.isdigit() and initial_patch.isdigit()):
-        logger.error(f"The initial version '{initial_version}' is not numeric.")
-        sys.exit(1)
-
-    # Check for automatic scheme-file if none provided
-    if not args.scheme_file:
-        config_path = os.path.join(os.getcwd(), 'tagit-config.json')
-        if os.path.exists(config_path):
-            args.scheme_file = config_path
-            logger.info("No --scheme-file specified. Found 'tagit-config.json' in the repository directory, using it.")
-        else:
-            logger.info("No --scheme-file specified and no 'tagit-config.json' found in the repository directory.")
-
-    if args.scheme_file:
-        try:
-            with open(args.scheme_file, 'r') as f:
-                additional_schemes = json.load(f)
-                if isinstance(additional_schemes, list):
-                    VERSION_SCHEMES.extend(additional_schemes)
-                    logger.info(f"{len(additional_schemes)} additional versioning schemes loaded.")
-                else:
-                    logger.error("The scheme file must contain a list of versioning schemes.")
-                    sys.exit(1)
-        except Exception as e:
-            logger.error(f"Error reading the scheme file: {e}")
-            sys.exit(1)
-
+        logger.info("Nothing to do: --no-tag specified but no files provided.")
+        return 0
+    
     try:
-        repo = Repo(os.getcwd())
-    except Exception as e:
-        logger.error(f"Error initializing the repository: {e}")
-        sys.exit(1)
-
-    if repo.is_dirty():
-        logger.error("The working directory is not clean. Please commit or stash your changes.")
-        sys.exit(1)
-
-    result = get_latest_tag(repo)
-    if result is None or result[0] is None:
-        # No tags found
-        major, minor, patch = initial_major, initial_minor, initial_patch
-        old_version = f"{major}.{minor}.{patch}"
-        micro = '0'
-        logger.info(f"No existing tags found. Initializing version to {major}.{minor}.{patch}.")
-    else:
-        full_tag_name, version_str, major, minor, patch = result
-        old_version = f"{major}.{minor}.{patch}"
-        logger.info(f"Latest tag: {full_tag_name}")
-        commits_since_tag = get_commits_since_tag(repo, full_tag_name)
-        logger.info(f"Commits since tag: {commits_since_tag}")
-
-        if micro_used and args.override_micro is None:
-            micro = patch
-            patch = '0'
-            logger.info(f"Detected micro usage in tag format. Interpreting old patch '{micro}' as micro and patch=0.")
+        # Initialize components
+        repo_path = Path.cwd()
+        validator = SecurityValidator()
+        git_handler = GitHandler(repo_path)
+        version_manager = VersionManager()
+        file_updater = FileUpdater()
+        config_manager = ConfigManager()
+        
+        # Validate inputs
+        validator.validate_tag_format(args.tag_format)
+        if args.initial_version:
+            validator.validate_version_string(args.initial_version)
+        
+        # Load additional schemes
+        if args.scheme_file:
+            config_manager.load_scheme_file(args.scheme_file)
+        elif (repo_path / 'tagit-config.json').exists():
+            config_manager.load_scheme_file(str(repo_path / 'tagit-config.json'))
+            logger.info("Found 'tagit-config.json' in repository, using it.")
+        
+        # Check repository status
+        if git_handler.is_dirty() and not args.dry_run:
+            logger.error("Working directory is not clean. Please commit or stash changes.")
+            return 1
+        
+        # Determine current version
+        latest_tag_info = git_handler.get_latest_tag()
+        
+        if latest_tag_info['tag'] is None:
+            # No existing tags
+            version_parts = version_manager.parse_version(args.initial_version)
+            major, minor, patch = version_parts[:3]
+            micro = version_parts[3] if len(version_parts) > 3 else '0'
+            logger.info(f"No existing tags. Using initial version: {major}.{minor}.{patch}")
+            old_version = args.initial_version
         else:
-            micro = '0' if args.override_micro is None else args.override_micro
+            # Get current version
+            major = latest_tag_info['major']
+            minor = latest_tag_info['minor']
+            patch = latest_tag_info['patch']
+            micro = latest_tag_info.get('micro', '0')
+            old_version = f"{major}.{minor}.{patch}"
+            
+            logger.info(f"Latest tag: {latest_tag_info['tag']}")
+            
+            # Handle micro versioning
+            micro_used = '{micro}' in args.tag_format
+            if micro_used and args.micro is None and latest_tag_info['micro'] is None:
+                # Convert 3-part to 4-part version
+                micro = patch
+                patch = '0'
+                logger.info(f"Converting to 4-part version: {major}.{minor}.{micro}.{patch}")
+            
+            # Calculate new version
+            commits_count = git_handler.get_commits_since_tag(latest_tag_info['tag'])
+            logger.info(f"Commits since tag: {commits_count}")
+            
+            if commits_count > 0:
+                if args.version_mode == 'commits':
+                    patch = str(int(patch) + commits_count)
+                else:  # increment
+                    patch = str(int(patch) + 1)
+                logger.info(f"New commits found. Incrementing version.")
+        
+        # Apply overrides
+        if args.major is not None:
+            validator.validate_numeric(args.major, "major")
+            major = args.major
+        if args.minor is not None:
+            validator.validate_numeric(args.minor, "minor")
+            minor = args.minor
+        if args.micro is not None:
+            validator.validate_numeric(args.micro, "micro")
+            micro = args.micro
+        if args.patch is not None:
+            validator.validate_numeric(args.patch, "patch")
+            patch = args.patch
+        
+        # Format new version
+        micro_used = '{micro}' in args.tag_format
+        if micro_used:
+            new_version = f"{major}.{minor}.{micro}.{patch}"
+        else:
+            new_version = f"{major}.{minor}.{patch}"
+        
+        logger.info(f"New version: {new_version}")
+        
+        if args.dry_run:
+            logger.info("DRY RUN MODE - No changes will be made")
+        
+        # Update files
+        if args.files:
+            updated_files = []
+            for file_path in args.files:
+                safe_path = validator.validate_safe_path(str(repo_path), file_path)
+                
+                if args.dry_run:
+                    logger.info(f"Would update: {safe_path}")
+                else:
+                    success = file_updater.update_file(
+                        safe_path, major, minor, patch, micro,
+                        config_manager.get_schemes()
+                    )
+                    if success:
+                        updated_files.append(safe_path)
+            
+            # Commit changes
+            if updated_files and not args.dry_run:
+                commit_msg = f"Version updated from {old_version} to {new_version}"
+                git_handler.commit_files(updated_files, commit_msg)
+        
+        # Create tag
+        if not args.no_tag:
+            # Generate placeholder values
+            now = datetime.now()
+            placeholders = {
+                'YYYY': now.strftime('%Y'),
+                'YY': now.strftime('%y'),
+                'MM': now.strftime('%m'),
+                'DD': now.strftime('%d'),
+                'hh': now.strftime('%H'),
+                'mm': now.strftime('%M'),
+                'ss': now.strftime('%S'),
+                'major': major,
+                'minor': minor,
+                'micro': micro,
+                'patch': patch,
+            }
+            
+            tag_name = version_manager.format_tag(args.tag_format, placeholders)
 
-        if commits_since_tag > 0:
-            if args.version_mode == 'commits':
-                patch = increment_patch(patch, commits_since_tag)
+            if args.dry_run:
+                if git_handler.tag_exists(tag_name):
+                    logger.info(f"Would skip creating tag (already exists): {tag_name}")
+                else:
+                    logger.info(f"Would create tag: {tag_name}")
             else:
-                patch = increment_patch(patch, 1)
-            logger.info(f"New commits found since the last tag. Base was {old_version}, now incremented patch to {patch}.")
-        else:
-            logger.info(f"No new commits since the tag. Current version is: {major}.{minor}.{patch}")
+                git_handler.create_tag(tag_name)
+        
+        logger.info("Script executed successfully.")
+        return 0
+        
+    except TagitError as e:
+        logger.error(f"Error: {e}")
+        return 1
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}")
+        if args.verbose:
+            logger.exception("Full traceback:")
+        return 1
 
-    # Override major, micro, and patch if specified
-    if args.override_major is not None:
-        if not args.override_major.isdigit():
-            logger.error(f"Value '{args.override_major}' provided for --major is not numeric.")
-            sys.exit(1)
-        major = args.override_major
-
-    if args.override_micro is not None:
-        if not args.override_micro.isdigit():
-            logger.error(f"Value '{args.override_micro}' provided for --micro is not numeric.")
-            sys.exit(1)
-        micro = args.override_micro
-
-    if args.override_patch is not None:
-        if not args.override_patch.isdigit():
-            logger.error(f"Value '{args.override_patch}' provided for --patch is not numeric.")
-            sys.exit(1)
-        patch = args.override_patch
-
-    if micro_used:
-        new_version = f"{major}.{minor}.{micro}.{patch}"
-    else:
-        new_version = f"{major}.{minor}.{patch}"
-
-    any_update = False
-    if args.files:
-        for file_path in args.files:
-            primary_scheme = find_primary_scheme_for_file(file_path)
-            updated = update_version_in_file(file_path, major, minor, patch, ver_micro=micro, primary_scheme=primary_scheme, micro_used=micro_used)
-            if updated:
-                any_update = True
-
-        if any_update:
-            commit_message = f"Version updated from {old_version} to {new_version} - Files updated."
-            try:
-                repo.index.add(args.files)
-                repo.index.commit(commit_message)
-                logger.info(f"Commit created: {commit_message}")
-            except Exception as e:
-                logger.error(f"Error while committing: {e}")
-                sys.exit(1)
-        else:
-            logger.info("No files were updated.")
-    else:
-        logger.info("No files specified. Only a new tag will be created if --no-tag is not used.")
-
-    if not args.no_tag:
-        create_git_tag(repo, new_version, tag_format, major, minor, patch, micro=micro)
-    else:
-        logger.info("Option '--no-tag' is enabled. No Git tag will be created.")
-
-    logger.info("Script executed successfully.")
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

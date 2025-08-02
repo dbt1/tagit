@@ -1,473 +1,402 @@
 <!-- LANGUAGE_LINKS_START -->
-[🇩🇪 German](README_de.md) | <span style="color: grey;">🇬🇧 English</span> | [🇪🇸 Spanish](README_es.md) | [🇫🇷 French](README_fr.md) | [🇮🇹 Italian](README_it.md)
+
+[🇩🇪 German](README_de.md) | <span style="color: grey;">🇬🇧 English</span>
+
 <!-- LANGUAGE_LINKS_END -->
 
-# Tagit - Automatic Git tagging and version updating
+# Tagit - Automatic Git Tagging and Version Management
 
-Version: 0.2.8
+[![Version](https://img.shields.io/badge/version-0.3.0-blue.svg)](https://github.com/dbt1/tagit)
+[![Python](https://img.shields.io/badge/python-3.6+-green.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Security](https://img.shields.io/badge/security-hardened-green.svg)](SECURITY.md)
 
-## Table of contents
+`Tagit` is a secure and robust tool for automatic version management in Git repositories. It automates the update of version numbers in various project files and creates corresponding Git tags with enhanced security and error handling.
 
-- [Tagit - Automatic Git tagging and version updating](#tagit---automatic-git-tagging-and-version-updating)
-  - [Table of Contents](#table-of-contents)
-  - [Features](#features)
-  - [Requirements](#requirements)
-    - [Use virtual environment (recommended)](#use-virtual-environment-recommended)
-    - [Systemwide](#system-wide)
-  - [Installation](#installation)
-  - [Usage](#use)
-    - [Examples](#examples)
-    - [Git Hook Integration](#git-hook-integration)
-  - [Supported versioning schemes](#supported-versioning-schemes)
-  - [Custom Versioning Schemes](#custom-versioning-schemes)
-    - [Example JSON configuration file](#example-json-configuration-file)
-    - [Explanation of each scheme](#explanation-of-each-scheme)
-      - [ac\_init](#ac_init)
-      - [version\_assignment](#version_assignment)
-      - [version\_colon\_format](#version_colon_format)
-      - [define\_ver](#define_ver)
-      - [env\_version](#env_version)
-      - [python\_setup](#python_setup)
-      - [package\_json](#package-json)
-      - [cpp\_header](#cpp_header)
-      - [xml\_version](#xml_version)
-      - [ini\_version](#ini_version)
-      - [markdown\_badge](#markdown_badge)
-      - [ruby\_gemspec](#ruby-gemspec)
-  - [Logging](#logging)
-  - [License](#license)
-  - [Author](#author)
+## New Features in Version 0.3.0
 
-`Tagit` is a script that automates version tagging in Git repositories and updates version numbers in specific project files. The script provides automatic management of versioning schemes, making it easier to maintain consistent version numbers across multiple files in your project.
+* **🔒 Enhanced Security**: Full protection against command injection and path traversal
+* **🧪 Dry-Run Mode**: Safely test changes before applying them
+* **📊 Improved Error Handling**: Detailed error messages and safe rollback mechanisms
+* **⚡ Performance Optimizations**: LRU caching for repeated Git operations
+* **🎯 Extended CLI**: New options for better control and debugging
+* **🛡️ Input Validation**: Strict validation of all user inputs
+* **📝 Better Logging**: Structured outputs with timestamps
+
+## Table of Contents
+
+* [Tagit - Automatic Git Tagging and Version Management](#tagit---automatic-git-tagging-and-version-management)
+
+  * [New Features in Version 0.3.0](#new-features-in-version-030)
+  * [Table of Contents](#table-of-contents)
+  * [Features](#features)
+  * [Requirements](#requirements)
+
+    * [Use a Virtual Environment (recommended)](#use-a-virtual-environment-recommended)
+    * [System-wide](#system-wide)
+  * [Installation](#installation)
+
+    * [Option 1: Direct Download](#option-1-direct-download)
+    * [Option 2: Git Clone](#option-2-git-clone)
+    * [Option 3: System-wide Installation](#option-3-system-wide-installation)
+  * [Usage](#usage)
+
+    * [Basic Commands](#basic-commands)
+    * [Advanced Examples](#advanced-examples)
+
+      * [1. Dry-Run Mode](#1-dry-run-mode)
+      * [2. Version Control](#2-version-control)
+      * [3. Custom Tag Formats](#3-custom-tag-formats)
+      * [4. Micro Versioning](#4-micro-versioning)
+    * [Command-Line Options](#command-line-options)
+    * [Git Hook Integration](#git-hook-integration)
+  * [Supported Versioning Schemes](#supported-versioning-schemes)
+  * [Custom Versioning Schemes](#custom-versioning-schemes)
+
+    * [Example JSON Configuration File](#example-json-configuration-file)
+    * [Schema Structure](#schema-structure)
+  * [Security](#security)
+
+    * [Implemented Security Measures](#implemented-security-measures)
+    * [Best Practices](#best-practices)
+  * [Logging](#logging)
+  * [Troubleshooting](#troubleshooting)
+
+    * [Common Issues](#common-issues)
+  * [Migration from Older Versions](#migration-from-older-versions)
+  * [Development](#development)
+  * [License](#license)
+  * [Author](#author)
 
 ## Features
 
-- **Automatic Git Tagging**: Generates Git tags based on different patch determination methods (number of commits or incrementation).
-- **Version Update in Project Files**: Updates version numbers in specified files based on predefined versioning schemes. Supports various versioning formats (e.g. AC_INIT, VERSION = "X.X.X", define(ver_major, X))
-- **Custom versioning schemes**: Supports additional versioning schemes via an `json` ​​scheme configuration file.
-- **Flexible Tag Format**: Allows you to define custom wildcard tag formats for major, minor and patch versions through customizable wildcard formats such as {YYYY}, {MM}, {DD}, {major} , {minor}, and {patch}, also for date and time: Use {YYYY}, {MM}, {DD}, {hh}, {mm}, {ss} to automatically integrate the current date and time.
-- **Initial version and version mode**: Allows you to set an initial version.
+* **Automatic Git Tagging**: Creates Git tags based on the number of commits or manual increment
+* **Version Updates in Project Files**: Updates version numbers in various file formats
+* **Custom Versioning Schemes**: Extendable via JSON configuration files
+* **Flexible Tag Format**: Supports placeholders for date, time, and version components
+* **Dry-Run Mode**: Preview changes without execution
+* **Secure Operations**: Automatic backups and rollback on errors
+* **Comprehensive Validation**: Checks all inputs for safety and correctness
 
 ## Requirements
 
-- Python 3
-- GitPython
+* Python 3.6 or higher
+* GitPython
+* Git (installed and configured)
 
-To install the dependencies use:
+### Use a Virtual Environment (recommended)
 
-### Use virtual environment (recommended)
-
-```sh
-python3 -m venv venv && source venv/bin/activate && pip install GitPython
+```bash
+python3 -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install GitPython
 ```
 
 ### System-wide
 
-```sh
+```bash
 pip install GitPython
 ```
 
-## installation
+## Installation
 
-Use `curl` to download the script directly to a location of your choice:
+### Option 1: Direct Download
 
 ```bash
-curl -o tagit.py https://raw.githubusercontent.com/dbt1/tagit/master/tagit.py
+curl -o tagit.py https://raw.githubusercontent.com/dbt1/tagit/v0.3.0/tagit.py
+chmod +x tagit.py
 ```
 
-**or**
-
-Use `git clone` to clone the entire source to a location of your choice:
+### Option 2: Git Clone
 
 ```bash
 git clone https://github.com/dbt1/tagit.git
+cd tagit
+chmod +x tagit.py
 ```
 
-You can run `Tagit` from a location of your choice, either directly where it is after cloning or in the same directory where `Tagit` is located. If `Tagit` is to be executed directly, the script must be made executable by changing the permission depending on the system.
+### Option 3: System-wide Installation
 
 ```bash
-chmod +x dateiname.py
+sudo curl -o /usr/local/bin/tagit https://raw.githubusercontent.com/dbt1/tagit/v0.3.0/tagit.py
+sudo chmod +x /usr/local/bin/tagit
 ```
 
-## use
+## Usage
 
-If no tag has yet been assigned in the repository, a tag will be created automatically. You can also set the initial tag yourself.
+### Basic Commands
 
-```sh
-python tagit.py --initial-version 1.0.0
+```bash
+# Show help
+./tagit.py --help
+
+# Show version
+./tagit.py --version
+
+# Automatic tagging (based on commits)
+./tagit.py
+
+# Update files and tag
+./tagit.py -f version.txt -f configure.ac
+
+# Only update files, no tag
+./tagit.py -f package.json --no-tag
 ```
 
-Run without specifying files to tag the latest version:
-```sh
-python tagit.py
+### Advanced Examples
+
+#### 1. Dry-Run Mode
+
+Test changes before applying:
+
+```bash
+# Show what would be changed
+./tagit.py -f version.txt --dry-run
+
+# With verbose output
+./tagit.py -f configure.ac --dry-run -v
 ```
 
-or with options:
-```sh
-python tagit.py [Optionen]
+#### 2. Version Control
+
+```bash
+# Override major version
+./tagit.py --major 2
+
+# Set complete version
+./tagit.py --major 1 --minor 5 --patch 0
+
+# Set initial version
+./tagit.py --initial-version 1.0.0
 ```
 
-### Examples
+#### 3. Custom Tag Formats
 
-- Update tagging and version numbers in multiple files:
-  ```sh
-  python tagit.py -f configure.ac -f version.txt
-  ```
-- Additional versioning schemes with an `JSON` scheme configuration file:
-  ```sh
-  python tagit.py --file configure.ac --file version.txt --scheme-file custom_schemes.json
-  ```
-- Tagging with versioning schemes from an `JSON` scheme configuration file
-  ```sh
-  python tagit.py --scheme-file custom_schemes.json --tag-format '{major}.{minor}.{patch}'
-  ```
-- Custom Tag Format:
-  ```sh
-  python tagit.py --file configure.ac --tag-format release-{major}.{minor}.{patch}
-  ```
-- Set initial version and increment patch version:
-  ```sh
-  python tagit.py --tag-format none --initial-version 1.0.0 --version-mode increment
-  ```
-- Tagging with year and month placeholders
-  ```sh
-  python tagit.py --tag-format '{YYYY}.{MM}.{patch}'
-  ```
-- Tagging with date and time
-  ```sh
-  python tagit.py --tag-format 'v{major}.{minor}.{patch}-{YY}{MM}{DD}-{hh}{mm}{ss}'
-  ```
-- Tagging with year, month
-  ```sh
-  python tagit.py --tag-format '{YYYY}.{MM}.{patch}' -f configure.ac
-  ```
-- Update files without creating a tag:
+```bash
+# With date in tag
+./tagit.py --tag-format 'v{major}.{minor}.{patch}-{YYYY}{MM}{DD}'
 
-  ```sh
-  python tagit.py -f configure.ac --no-tag
-  ```
-### Git hook integration
+# With time
+./tagit.py --tag-format 'release-{major}.{minor}.{patch}-{hh}{mm}{ss}'
 
-You can integrate `Tagit` into your Git workflow by using it as a pre-push hook. This ensures that version numbers and tags are automatically updated before you push changes to the remote repository.
+# Year and month only
+./tagit.py --tag-format '{YYYY}.{MM}.{patch}'
+```
 
-Here is a guide to use the script as a pre-push hook:
+#### 4. Micro Versioning
 
-1. Create the Git hook folder if it does not exist:
+For 4-part version numbers:
 
-   ```sh
+```bash
+./tagit.py --tag-format '{major}.{minor}.{micro}.{patch}' --micro 1
+```
+
+### Command-Line Options
+
+| Option              | Short | Description                                               |
+| ------------------- | ----- | --------------------------------------------------------- |
+| `--file`            | `-f`  | File to update (can be used multiple times)               |
+| `--scheme-file`     |       | JSON file with custom schemes                             |
+| `--tag-format`      |       | Format for Git tags (default: `v{major}.{minor}.{patch}`) |
+| `--initial-version` |       | Initial version if no tags exist (default: `0.1.0`)       |
+| `--version-mode`    |       | `commits` or `increment` for patch calculation            |
+| `--no-tag`          |       | Only update files, do not create tag                      |
+| `--dry-run`         |       | Show changes without executing                            |
+| `--major`           |       | Override major version                                    |
+| `--minor`           |       | Override minor version                                    |
+| `--micro`           |       | Override micro version                                    |
+| `--patch`           |       | Override patch version                                    |
+| `--verbose`         | `-v`  | Verbose output                                            |
+| `--version`         |       | Show program version                                      |
+
+### Git Hook Integration
+
+Automate Tagit with Git Hooks:
+
+1. **Create hook directory**:
+
+   ```bash
    mkdir -p .git/hooks
    ```
 
-2. Create a file named `pre-push` in the `.git/hooks/` directory and make it executable:
+2. **Create pre-push hook**:
 
-   ```sh
-   touch .git/hooks/pre-push
+   ```bash
+   cat > .git/hooks/pre-push << 'EOF'
+   #!/bin/sh
+   # Run Tagit before push
+
+   python3 path/to/tagit.py -f version.txt --dry-run || {
+       echo "Version check failed. Run without --dry-run to update."
+       exit 1
+   }
+   EOF
+
    chmod +x .git/hooks/pre-push
    ```
 
-3. Edit the `.git/hooks/pre-push` file and add the following content:
+## Supported Versioning Schemes
 
-   ```sh
-   #!/bin/sh
-   # Pre-Push Hook to run Tagit before pushing
-   
-   python3 path/to/tagit.py -f configure.ac -f version.txt || {
-       echo "Tagit failed. Push aborted."
-       exit 1
-   }
-   ```
+Tagit supports the following formats by default:
 
-   Replace `path/to/tagit.py` with the actual path to your Tagit script and `configure.ac`, `version.txt` with the files you want to update.
+* **ac\_init**: Autoconf `configure.ac` files (`AC_INIT([name], [version], [email])`)
+* **version\_assignment**: Version assignments (`VERSION = "X.X.X"`)
+* **define\_ver**: Define macros (`define(ver_major, X)`)
+* **env\_version**: Environment variables (`VERSION_MAJOR="X"`)
 
-4. Save the changes and close the file.
+## Custom Versioning Schemes
 
-Now every time you try to push changes, the Tagit script will be executed. If Tagit fails, the push will be canceled so you can ensure versions remain consistent.
+Create a `tagit-config.json` in the repository root or load it with `--scheme-file`:
 
-
-## Supported versioning schemes
-
-`Tagit` comes with predefined versioning schemes, which can be extended with a JSON configuration file if necessary:
-
-- **ac_init**: Finds and updates the version in `AC_INIT()` macros used in `configure.ac` files.
-- **version_assignment**: Finds `VERSION = "X.X.X"` assignment instructions.
-- **define_ver**: Updates version macros like `define(ver_major, X)`.
-- **env_version**: Updates environment variables like `VERSION_MAJOR="X"`.
-
-## Custom versioning schemes
-
-You can add additional versioning schemes by specifying a JSON configuration file with the `--scheme-file` option. This allows you to define custom patterns and replacement strings for version updates in any files.
-
-### Example JSON configuration file
-
-Here is an example JSON configuration file that defines custom versioning schemes:
+### Example JSON Configuration File
 
 ```json
 [
-    {
-        "name": "ac_init",
-        "_comment": "Updates the version number in Autoconf 'configure.ac' files using the AC_INIT macro.",
-        "patterns": {
-            "version": "(AC_INIT\\(\\[.*?\\],\\s*\\[)\\d+\\.\\d+\\.\\d+(\\],\\s*\\[.*?\\]\\))"
-        },
-        "replacements": {
-            "version": "\\g<1>{major}.{minor}.{micro}\\g<2>"
-        }
+  {
+    "name": "package_json",
+    "patterns": {
+      "version": "\"version\":\\s*\"\\d+\\.\\d+\\.\\d+\""
     },
-    {
-        "name": "version_assignment",
-        "_comment": "Updates versions in scripts or configuration files. Supports both 'VERSION' and 'version'.",
-        "patterns": {
-            "version": "(VERSION|version)\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
-        },
-        "replacements": {
-            "version": "\\1 = \"{major}.{minor}.{patch}\""
-        }
-    },
-    {
-        "name": "define_ver",
-        "_comment": "Updates version definitions in files using 'define' macros.",
-        "patterns": {
-            "ver_major": "define\\(ver_major,\\s*\\d+\\)",
-            "ver_minor": "define\\(ver_minor,\\s*\\d+\\)",
-            "ver_micro": "define\\(ver_micro,\\s*\\d+\\)"
-        },
-        "replacements": {
-            "ver_major": "define(ver_major, {major})",
-            "ver_minor": "define(ver_minor, {minor})",
-            "ver_micro": "define(ver_micro, {micro})"
-        }
-    },
-    {
-        "name": "env_version",
-        "_comment": "Updates environment variable assignments for version numbers.",
-        "patterns": {
-            "VERSION_MAJOR": "VERSION_MAJOR=\"\\d+\"",
-            "VERSION_MINOR": "VERSION_MINOR=\"\\d+\"",
-            "VERSION_PATCH": "VERSION_PATCH=\"\\d+\""
-        },
-        "replacements": {
-            "VERSION_MAJOR": "VERSION_MAJOR=\"{major}\"",
-            "VERSION_MINOR": "VERSION_MINOR=\"{minor}\"",
-            "VERSION_PATCH": "VERSION_PATCH=\"{patch}\""
-        }
-    },
-    {
-        "name": "version_colon_format",
-        "_comment": "Updates version numbers in files with the format 'Version: X.X.X'.",
-        "patterns": {
-            "version": "Version:\\s*\\d+(\\.\\d+)+"
-        },
-        "replacements": {
-            "version": "Version: {major}.{minor}.{patch}"
-        }
-    },
-    {
-        "name": "python_setup",
-        "_comment": "Updates the version number in Python 'setup.py' files.",
-        "patterns": {
-            "version": "version=\\\"\\d+\\.\\d+\\.\\d+\\\""
-        },
-        "replacements": {
-            "version": "version=\"{major}.{minor}.{patch}\""
-        }
-    },
-    {
-        "name": "package_json",
-        "_comment": "Updates the version number in 'package.json' files for Node.js projects.",
-        "patterns": {
-            "version": "\"version\":\\s*\"\\d+\\.\\d+\\.\\d+\""
-        },
-        "replacements": {
-            "version": "\"version\": \"{major}.{minor}.{patch}\""
-        }
-    },
-    {
-        "name": "cpp_header",
-        "_comment": "Updates version numbers in C++ header files.",
-        "patterns": {
-            "VERSION_MAJOR": "#define\\s+VERSION_MAJOR\\s+\\d+",
-            "VERSION_MINOR": "#define\\s+VERSION_MINOR\\s+\\d+",
-            "VERSION_PATCH": "#define\\s+VERSION_PATCH\\s+\\d+"
-        },
-        "replacements": {
-            "VERSION_MAJOR": "#define VERSION_MAJOR {major}",
-            "VERSION_MINOR": "#define VERSION_MINOR {minor}",
-            "VERSION_PATCH": "#define VERSION_PATCH {patch}"
-        }
-    },
-    {
-        "name": "xml_version",
-        "_comment": "Updates version numbers in XML files.",
-        "patterns": {
-            "version": "<version>\\d+\\.\\d+\\.\\d+</version>"
-        },
-        "replacements": {
-            "version": "<version>{major}.{minor}.{patch}</version>"
-        }
-    },
-    {
-        "name": "ini_version",
-        "_comment": "Updates version numbers in INI configuration files.",
-        "patterns": {
-            "version": "version=\\d+\\.\\d+\\.\\d+"
-        },
-        "replacements": {
-            "version": "version={major}.{minor}.{patch}"
-        }
-    },
-    {
-        "name": "markdown_badge",
-        "_comment": "Updates version badges in 'README.md' files.",
-        "patterns": {
-            "version": "\\[!\\[Version\\]\\(https://img\\.shields\\.io/badge/version-\\d+\\.\\d+\\.\\d+-blue\\.svg\\)\\]\\(.*?\\)"
-        },
-        "replacements": {
-            "version": "[![Version](https://img.shields.io/badge/version-{major}.{minor}.{patch}-blue.svg)](URL_TO_PROJECT)"
-        }
-    },
-    {
-        "name": "ruby_gemspec",
-        "_comment": "Updates the version number in Ruby '.gemspec' files.",
-        "patterns": {
-            "version": "\\.version\\s*=\\s*\"\\d+\\.\\d+\\.\\d+\""
-        },
-        "replacements": {
-            "version": ".version = \"{major}.{minor}.{patch}\""
-        }
+    "replacements": {
+      "version": "\"version\": \"{major}.{minor}.{patch}\""
     }
+  },
+  {
+    "name": "cmake_project",
+    "patterns": {
+      "version": "project\\(\\w+\\s+VERSION\\s+\\d+\\.\\d+\\.\\d+\\)"
+    },
+    "replacements": {
+      "version": "project(${PROJECT_NAME} VERSION {major}.{minor}.{patch})"
+    }
+  }
 ]
-
 ```
 
-### Explanation of each scheme
+### Schema Structure
 
-#### ac_init
-- **Purpose**: Updates the version in `configure.ac` files using the `AC_INIT` macro.
-- **Example**:
-  ```m4
-  AC_INIT([MyProject], [0.2.9], [support@example.com])
-  ```
-- **Description**: Searches for the `AC_INIT` macro and updates the version number.
+Each schema requires:
 
-#### version_assignment
-- **Purpose**: General versioning assignment in scripts or configuration files.
-- **Example**:
-  ```bash
-  VERSION = "0.1.0"
-  ```
-- **Description**: Searches for lines containing `VERSION = "..."` and replaces the version.
+* `name`: Unique name of the scheme
+* `patterns`: Dictionary with regex patterns for finding
+* `replacements`: Dictionary with replacement strings (with placeholders)
 
-#### version_colon_format
+Available placeholders:
 
-- **Purpose**: Updates version numbers in files with version: X.X.X format.
-- **Example**:
-  ```txt
-  Version: 0.0.0
-  ``` 
-**Description**: Searches for lines that start with version: and contain a version number and updates them.
+* `{major}`, `{minor}`, `{patch}`, `{micro}`: Version components
+* `{YYYY}`, `{YY}`, `{MM}`, `{DD}`: Date
+* `{hh}`, `{mm}`, `{ss}`: Time
 
-#### define_ver
-- **Purpose**: Version definitions in files using macros.
-- **Example**:
-  ```m4
-  define(ver_major, 0)
-  define(ver_minor, 1)
-  define(ver_micro, 0)
-  ```
-- **Description**: Replaces major, minor and patch versions in macros.
+## Security
 
-#### env_version
-- **Purpose**: Sets version numbers for environment variables.
-- **Example**:
-  ```bash
-  VERSION_MAJOR="0"
-  VERSION_MINOR="1"
-  VERSION_PATCH="0"
-  ```
-- **Description**: Updates the environment variables with the new version.
+### Implemented Security Measures
 
-#### python_setup
-- **Purpose**: Updates the version in `setup.py` for Python packages.
-- **Example**:
-  ```python
-  setup(
-      name='mypackage',
-      version="0.1.0",
-      ...
-  )
-  ```
-- **Description**: Searches for the version in `setup.py` and replaces it.
+1. **Command Injection Protection**:
 
-#### package json
-- **Purpose**: Updates the version in `package.json` for Node.js projects.
-- **Example**:
-  ```json
-  {
-    "name": "myproject",
-    "version": "0.1.0",
-    ...
-  }
-  ```
-- **Description**: Searches for and updates the version field in `package.json`.
+   * All Git commands run without `shell=True`
+   * No interpretation of shell metacharacters
 
-#### cpp_header
-- **Purpose**: Updates version numbers in C/C++ header files.
-- **Example**:
-  ```cpp
-  #define VERSION_MAJOR 0
-  #define VERSION_MINOR 1
-  #define VERSION_PATCH 0
-  ```
-- **Description**: Replaces version numbers in `#define` directives.
+2. **Path Traversal Protection**:
 
-#### xml_version
-- **Purpose**: Updates version numbers in XML files.
-- **Example**:
-  ```xml
-  <version>0.1.0</version>
-  ```
-- **Description**: Finds the `<version>` tag and updates the version number.
+   * Validation of all file paths
+   * Access only within the repository directory
 
-#### ini_version
-- **Purpose**: Updates version numbers in INI files.
-- **Example**:
-  ```ini
-  version=0.1.0
-  ```
-- **Description**: Finds the version setting and replaces it.
+3. **Input Validation**:
 
-#### markdown_badge
-- **Purpose**: Updates version badges in `README.md` files.
-- **Example**:
-  ```markdown
-  [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/username/repository)
-  ```
-- **Description**: Replaces the version number in the badge link.
+   * Strict regex checking for version strings
+   * Validation of tag formats for dangerous patterns
 
-#### ruby gemspec
-- **Purpose**: Updates the version number in `.gemspec` files for Ruby.
-- **Example**:
-  ```ruby
-  Gem::Specification.new do |spec|
-    spec.name        = 'mygem'
-    spec.version     = "0.1.0"
-    ...
-  end
-  ```
-- **Description**: Searches for `.version` in `.gemspec` files and updates them.
+4. **Safe File Operations**:
+
+   * Automatic backups before changes
+   * Rollback on errors
+
+### Best Practices
+
+1. **Always use dry-run** for critical files
+2. **Commit changes** before using Tagit
+3. **Check the logs** with `--verbose` when problems occur
+4. **Keep Tagit up to date** for the latest security updates
 
 ## Logging
 
-`Tagit` provides detailed logging for every action performed. Log entries include:
+Tagit provides structured logs with:
 
-- Version updates in files
-- Git tagging actions
-- Warnings and errors if problems occur
+* Timestamps for all operations
+* Log levels (INFO, WARNING, ERROR)
+* Detailed error messages
+* Verbose mode for debug information
+
+```bash
+# Normal output
+2024-01-15 10:30:45 [INFO] Latest tag: v0.2.8
+2024-01-15 10:30:45 [INFO] New version: 0.3.0
+
+# Verbose mode
+2024-01-15 10:30:45 [DEBUG] Running Git command: git describe --tags --abbrev=0
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**"Not a Git repository"**:
+
+```bash
+cd /path/to/repository
+./tagit.py -f version.txt
+```
+
+**"Working directory not clean"**:
+
+```bash
+# Option 1: Commit changes
+git add . && git commit -m "Save changes"
+
+# Option 2: Stash changes
+git stash
+```
+
+**"No matching scheme found"**:
+
+```bash
+# Create a matching schema file
+./tagit.py -f myfile --scheme-file custom-schemas.json
+```
+
+**Enable debug mode**:
+
+```bash
+./tagit.py -v -f problematic-file.txt
+```
+
+## Migration from Older Versions
+
+From version 0.2.x to 0.3.0:
+
+1. **No breaking changes**: Core functionality remains the same
+2. **New features**: Use `--dry-run` to test safely
+3. **Improved security**: No changes needed
+4. **Schema compatibility**: Existing `tagit-config.json` still works
+
+## Development
+
+Contributions are welcome! Please note:
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new features
+4. Ensure code follows security guidelines
+5. Create a pull request
 
 ## License
 
-`Tagit` is licensed under the MIT License.
+Tagit is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
-## author
+## Author
 
-Created by Thilo Graf.
+Created by **Thilo Graf**
+
+---
+
+**Version 0.3.0** - Focused on security, reliability, and usability.
